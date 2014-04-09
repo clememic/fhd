@@ -55,3 +55,23 @@ class FHD(object):
             ctypes.c_int(width),
             ctypes.c_int(height))
         return fhistogram
+
+
+def meanshift(image, spatial_radius, range_radius, min_density):
+    """Segment an image with meanshift."""
+    import pymeanshift as pyms
+    segm, labels, num_modes = pyms.segment(image, spatial_radius, range_radius,
+                                           min_density, pyms.SPEEDUP_MEDIUM)
+    return segm, num_modes
+
+
+def kmeans(samples, k):
+    """Perform kmeans clustering on given samples."""
+    from sklearn.cluster import KMeans
+    kmeans = KMeans(n_clusters=k)
+    kmeans.fit(samples)
+    clusters = kmeans.cluster_centers_.astype(np.uint8)
+    labels = kmeans.labels_
+    for index in range(samples.shape[0]):
+        samples[index] = clusters[labels[index]]
+    return samples, clusters
