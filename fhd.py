@@ -75,3 +75,12 @@ def kmeans(samples, k):
     for index in range(samples.shape[0]):
         samples[index] = clusters[labels[index]]
     return samples, clusters
+
+def binary_layers(segm, clusters):
+    """Split a segmented image into binary layers."""
+    N = clusters.shape[0]
+    layers = [np.zeros((segm.shape[0], segm.shape[1]), np.uint8)
+              for i in range(N)]
+    for index, cluster in enumerate(clusters):
+        layers[index][np.where((segm == cluster).all(segm.ndim - 1))] = 255
+    return layers
