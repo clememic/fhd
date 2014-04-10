@@ -65,10 +65,10 @@ def meanshift(image, spatial_radius, range_radius, min_density):
     return segm, num_modes
 
 
-def kmeans(samples, k):
+def kmeans(samples, num_clusters):
     """Perform kmeans clustering on given samples."""
     from sklearn.cluster import KMeans
-    kmeans = KMeans(n_clusters=k)
+    kmeans = KMeans(n_clusters=num_clusters)
     kmeans.fit(samples)
     clusters = kmeans.cluster_centers_.astype(np.uint8)
     labels = kmeans.labels_
