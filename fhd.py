@@ -28,7 +28,7 @@ class FHD(object):
     def compute_fhd(cls, layers, num_dirs=180, shape_force=0.0,
                     spatial_force=0.0):
         """Compute an FHD descriptor for given layers."""
-        N = layers.shape[0]
+        N = len(layers)
         fhistograms = np.ndarray((N, N, num_dirs))
         for i in range(N):
             for j in range(i, N):
