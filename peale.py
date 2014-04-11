@@ -88,3 +88,36 @@ class Peale(object):
                 name = int(os.path.splitext(filename)[0])
                 peales.append(cls(label=label, name=name))
         return peales
+
+
+class PealeExperiment(object):
+
+    """Represent an "FHD experiment" on the Peale dataset."""
+
+    EXPERIMENTS_BASE_PATH = os.path.join(os.path.dirname(__file__),
+                                         'experiments/peale/')
+
+    def __init__(self):
+        """Initialize a Peale experiment."""
+        self.samples = Peale.dataset()
+        self.num_samples = len(self.samples)
+
+    def __getitem__(self, index):
+        """Return a sample of the Peale experiment by index."""
+        return self.samples[index]
+
+    def run_experiment(self, N, num_dirs, shape_force, spatial_force,
+                       spatial_radius, range_radius, min_density):
+        """Segmentation and FHD descriptors for the Peale dataset."""
+        experiment_path = '-'.join((str(N), str(num_dirs), str(shape_force),
+                                   str(spatial_force), str(spatial_radius),
+                                   str(range_radius), str(min_density)))
+        base_path = os.path.join(self.__class__.EXPERIMENTS_BASE_PATH,
+                                 experiment_path)
+        for index, sample in enumerate(self.samples):
+            print('[{}/{}] label={}, name={}'.format(
+                str(index + 1).zfill(len(str(self.num_samples))),
+                self.num_samples, sample.label, sample.name))
+            sample.segment(N, spatial_radius, range_radius, min_density)
+            sample.compute_fhd(num_dirs, shape_force, spatial_force)
+            sample.dump(base_path)
