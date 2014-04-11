@@ -56,7 +56,7 @@ class Peale(object):
 
     def dump(self, base_path):
         """Dump the object in directory structure starting with base path."""
-        path = os.path.join(base_path, self.str_label(), self.str_label())
+        path = os.path.join(base_path, self.str_label(), self.str_name())
         if not os.path.exists(path):
             os.makedirs(path)
         meanshift_path = '01-meanshift-{}.png'.format(self.num_modes)
