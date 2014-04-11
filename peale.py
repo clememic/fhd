@@ -41,7 +41,9 @@ class Peale(object):
         self.num_modes = num_modes
         segm[~bg], clusters = fhd.kmeans(segm[~bg], num_clusters)
         self.kmeans = segm
-        self.clusters = clusters
+        self.clusters = np.array(
+            sorted(clusters, key=lambda c: c.dot([0.299, 0.587, 0.114])))
+        self.split_into_layers()
 
     def split_into_layers(self):
         """Split the the current sample into binary layers."""
