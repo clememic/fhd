@@ -52,6 +52,19 @@ class Peale(object):
         self.fhd = FHD.compute_fhd(self.layers, num_dirs, shape_force,
                                    spatial_force)
 
+    def dump(self, base_path):
+        """Dump the object in directory structure starting with base path."""
+        path = os.path.join(base_path, self.str_label(), self.str_label())
+        if not os.path.exists(path):
+            os.makedirs(path)
+        meanshift_path = 'segm-meanshift-{}.png'.format(self.num_modes)
+        kmeans_path = 'segm-kmeans-{}.png'.format(self.clusters.shape[0])
+        imsave(os.path.join(path, meanshift_path), self.meanshift)
+        imsave(os.path.join(path, kmeans_path), self.kmeans)
+        for index, layer in enumerate(self.layers):
+            layer_path = 'layer-{}.png'.format(index)
+            imsave(os.path.join(path, layer_path), layer)
+
     def str_label(self):
         """Return string version of label attribute."""
         return str(self.label).zfill(2)
