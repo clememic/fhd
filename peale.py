@@ -23,7 +23,6 @@ class Peale(object):
 
     def imread(self):
         """Read and return the butterfly image of the current sample."""
-        from scipy.misc import imread
         dataset_path = self.__class__.DATASET_PATH
         label = self.str_label()
         name = self.str_name()
