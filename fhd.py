@@ -81,6 +81,8 @@ def binary_layers(segm, clusters):
     N = clusters.shape[0]
     layers = [np.zeros((segm.shape[0], segm.shape[1]), np.uint8)
               for i in range(N)]
+    from scipy.ndimage import binary_erosion
     for index, cluster in enumerate(clusters):
         layers[index][np.where((segm == cluster).all(segm.ndim - 1))] = 255
+        layers[index] = binary_erosion(layers[index], np.ones((3, 3)))
     return layers
