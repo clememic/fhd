@@ -25,7 +25,7 @@ class Peale(object):
         """Read and return the butterfly image of the current sample."""
         dataset_path = self.__class__.DATASET_PATH
         label = self.str_label()
-        name = self.str_name()
+        name = self.str_name() + '.jpg'
         image = imread(os.path.join(dataset_path, label, name))
         return image
 
@@ -73,7 +73,7 @@ class Peale(object):
 
     def str_name(self):
         """Return string version of name attribute."""
-        return str(self.name).zfill(2) + '.jpg'
+        return str(self.name).zfill(2)
 
     @classmethod
     def dataset(cls):
