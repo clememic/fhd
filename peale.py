@@ -2,8 +2,8 @@
 
 import os
 
-import matplotlib.pyplot as plt
 import numpy as np
+from scipy.misc import imread, imsave
 
 import fhd
 from fhd import FHD
@@ -23,9 +23,13 @@ class Peale(object):
 
     def imread(self):
         """Read and return the butterfly image of the current sample."""
-        return plt.imread(os.path.join(self.__class__.DATASET_PATH,
-                                       str(self.label).zfill(2),
-                                       str(self.name).zfill(2) + '.jpg'))
+        from scipy.misc import imread
+        dataset_path = self.__class__.DATASET_PATH
+        label = str(self.label).zfill(2)
+        name = str(self.name).zfill(2) + '.png'
+        image = imread(os.path.join(dataset_path, label, name))
+        return image
+
 
     def segment(self, num_clusters, spatial_radius, range_radius, min_density):
         """Segment the butterfly image of the current sample."""
