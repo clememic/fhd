@@ -57,8 +57,8 @@ class Peale(object):
         path = os.path.join(base_path, self.str_label(), self.str_label())
         if not os.path.exists(path):
             os.makedirs(path)
-        meanshift_path = 'segm-meanshift-{}.png'.format(self.num_modes)
-        kmeans_path = 'segm-kmeans-{}.png'.format(self.clusters.shape[0])
+        meanshift_path = '01-meanshift-{}.png'.format(self.num_modes)
+        kmeans_path = '02-kmeans-{}.png'.format(self.clusters.shape[0])
         imsave(os.path.join(path, meanshift_path), self.meanshift)
         imsave(os.path.join(path, kmeans_path), self.kmeans)
         for index, layer in enumerate(self.layers):
