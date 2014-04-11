@@ -24,6 +24,18 @@ class FHD(object):
         """Return FHistogram by index."""
         return self.fhistograms[index]
 
+    def dump(self, filename):
+        """Dump FHD descriptor to file."""
+        np.savetxt(filename, self.fhistograms[np.triu_indices(self.N)])
+
+    @classmethod
+    def load(cls, filename, N, shape_force, spatial_force):
+        fhistograms_from_file = np.loadtxt(filename)
+        num_dirs = fhistograms_from_file.shape[-1]
+        fhistograms = np.ndarray((N, N, num_dirs))
+        fhistograms[np.triu_indices(N)] = fhistograms_from_file
+        return cls(fhistograms, shape_force, spatial_force)
+
     @classmethod
     def compute_fhd(cls, layers, num_dirs=180, shape_force=0.0,
                     spatial_force=0.0):
