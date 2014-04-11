@@ -25,8 +25,8 @@ class Peale(object):
         """Read and return the butterfly image of the current sample."""
         from scipy.misc import imread
         dataset_path = self.__class__.DATASET_PATH
-        label = str(self.label).zfill(2)
-        name = str(self.name).zfill(2) + '.png'
+        label = self.str_label()
+        name = self.str_name()
         image = imread(os.path.join(dataset_path, label, name))
         return image
 
@@ -52,6 +52,14 @@ class Peale(object):
         """Compute FHD descriptor of the current samples."""
         self.fhd = FHD.compute_fhd(self.layers, num_dirs, shape_force,
                                    spatial_force)
+
+    def str_label(self):
+        """Return string version of label attribute."""
+        return str(self.label).zfill(2)
+
+    def str_name(self):
+        """Return string version of name attribute."""
+        return str(self.name).zfill(2) + '.png'
 
     @classmethod
     def dataset(cls):
