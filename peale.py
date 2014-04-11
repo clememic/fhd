@@ -66,6 +66,7 @@ class Peale(object):
         for index, layer in enumerate(self.layers):
             layer_path = 'layer-{}.png'.format(index)
             imsave(os.path.join(path, layer_path), layer)
+        self.fhd.dump(os.path.join(path, 'fhd.txt'))
 
     def str_label(self):
         """Return string version of label attribute."""
