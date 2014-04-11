@@ -71,7 +71,7 @@ class Peale(object):
 
     def str_name(self):
         """Return string version of name attribute."""
-        return str(self.name).zfill(2) + '.png'
+        return str(self.name).zfill(2) + '.jpg'
 
     @classmethod
     def dataset(cls):
