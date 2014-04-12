@@ -1,9 +1,28 @@
 """FHD descriptors module."""
 
+import math
 import os
 
 import numpy as np
 
+class FHistogram(object):
+
+    """FHistogram class, used for computing distance between FHistograms."""
+
+    @staticmethod
+    def L1(A, B):
+        """Manhattan distance."""
+        return np.sum(np.abs(A - B))
+
+    @staticmethod
+    def L2(A, B):
+        """Euclidean distance."""
+        return math.sqrt(np.sum((A - B) ** 2))
+
+    @staticmethod
+    def CHI2(A, B):
+        """Chi-squared distance."""
+        return np.sum(np.nan_to_num(((A - B) ** 2) / (A + B)))
 
 class FHD(object):
 
