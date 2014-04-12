@@ -15,11 +15,23 @@ class Peale(object):
 
     DATASET_PATH = os.path.join(os.path.dirname(__file__), 'datasets/peale/')
 
-    def __init__(self, label, name):
+    def __init__(self, label, name, base_experiment_path=None):
         """Load a sample from the PEALE dataset."""
         self.label = label
         self.name = name
         self.image = self.imread()
+        if base_experiment_path:
+            params = PealeExperiment.get_params(base_experiment_path)
+            path = os.path.join(base_experiment_path, self.str_label(),
+                                self.str_name())
+            self.meanshift = imread(os.path.join(path, 'meanshift.png'))
+            self.kmeans = imread(os.path.join(path, 'kmeans.png'))
+            self.layers = []
+            for i in range(params['N']):
+                self.layers.append(
+                    imread(os.path.join(path, 'layers-{}.png'.format(i))))
+            self.fhd = FHD.load(os.path.join(path, 'fhd.txt'), params['N'],
+                                params['shape_force'], params['spatial_force'])
 
     def imread(self):
         """Read and return the butterfly image of the current sample."""
@@ -59,12 +71,12 @@ class Peale(object):
         path = os.path.join(base_path, self.str_label(), self.str_name())
         if not os.path.exists(path):
             os.makedirs(path)
-        meanshift_path = '01-meanshift-{}.png'.format(self.num_modes)
-        kmeans_path = '02-kmeans-{}.png'.format(self.clusters.shape[0])
+        meanshift_path = 'meanshift.png'.format(self.num_modes)
+        kmeans_path = 'kmeans.png'.format(self.clusters.shape[0])
         imsave(os.path.join(path, meanshift_path), self.meanshift)
         imsave(os.path.join(path, kmeans_path), self.kmeans)
         for index, layer in enumerate(self.layers):
-            layer_path = 'layer-{}.png'.format(index)
+            layer_path = 'layers-{}.png'.format(index)
             imsave(os.path.join(path, layer_path), layer)
         self.fhd.dump(os.path.join(path, 'fhd.txt'))
 
@@ -97,9 +109,19 @@ class PealeExperiment(object):
     EXPERIMENTS_BASE_PATH = os.path.join(os.path.dirname(__file__),
                                          'experiments/peale/')
 
-    def __init__(self):
+    def __init__(self, experiment_path=None):
         """Initialize a Peale experiment."""
-        self.samples = Peale.dataset()
+        if not experiment_path:
+            self.samples = Peale.dataset()
+        else:
+            self.samples = []
+            params = self.__class__.get_params(experiment_path)
+            for str_label in os.listdir(experiment_path):
+                label = int(str_label)
+                label_path = os.path.join(experiment_path, str_label)
+                for str_name in os.listdir(label_path):
+                    name = int(str_name)
+                    self.samples.append(Peale(label, name, experiment_path))
         self.num_samples = len(self.samples)
 
     def __getitem__(self, index):
@@ -117,7 +139,18 @@ class PealeExperiment(object):
         for index, sample in enumerate(self.samples):
             print('[{}/{}] label={}, name={}'.format(
                 str(index + 1).zfill(len(str(self.num_samples))),
-                self.num_samples, sample.label, sample.name))
+                self.num_samples, sample.str_label(), sample.str_name()))
             sample.segment(N, spatial_radius, range_radius, min_density)
             sample.compute_fhd(num_dirs, shape_force, spatial_force)
             sample.dump(base_path)
+
+    @classmethod
+    def get_params(cls, experiment_path):
+        """Return a dict containing the parameters of an experiment."""
+        relpath = os.path.relpath(experiment_path, cls.EXPERIMENTS_BASE_PATH)
+        p = relpath.split('-')
+        params = {'N': int(p[0]), 'num_dirs': int(p[1]),
+                  'shape_force': float(p[2]), 'spatial_force': float(p[3]),
+                  'spatial_radius': int(p[4]), 'range_radius': float(p[5]),
+                  'min_density': int(p[6])}
+        return params
