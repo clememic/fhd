@@ -124,6 +124,46 @@ class PealeExperiment(object):
                     self.samples.append(Peale(label, name, experiment_path))
         self.num_samples = len(self.samples)
 
+    def cross_validate(self, alpha=None):
+        """Leave-one-out cross validation."""
+        from sklearn.cross_validation import LeaveOneOut
+        loo = LeaveOneOut(self.num_samples)
+        for train, test in loo:
+            A = self.samples[test[0]]
+            print('[{}/{}] label={}, name={}'.format(
+                str(test[0] + 1).zfill(len(str(self.num_samples))),
+                self.num_samples, A.str_label(), A.str_name()))
+            A.neighbors = [self.samples[i] for i in train]
+            A.neighbors.sort(key=lambda n: FHD.distance(A.fhd, n.fhd, alpha))
+
+    def recognition_rates(self):
+        labels = {}
+        true_positives = {}
+        for sample in self.samples:
+            if sample.label not in labels:
+                labels[sample.label] = 0
+                true_positives[sample.label] = 0
+            labels[sample.label] += 1
+            if sample.label == sample.neighbors[0].label:
+                true_positives[sample.label] += 1
+        for label in labels:
+            print('label {}: {}/{}, {}%'.format(
+                str(label).zfill(2),
+                str(true_positives[label]).zfill(2),
+                str(labels[label]).zfill(2),
+                round((true_positives[label] / labels[label]) * 100, 2)))
+        total_tp = 0
+        for label in true_positives:
+            total_tp += true_positives[label]
+        print('Recognition rate: {}%'.format(
+            round((total_tp / self.num_samples) * 100, 2)))
+        mean_recognition_rate = 0
+        for label in true_positives:
+            mean_recognition_rate += (true_positives[label] / labels[label]) * 100
+        mean_recognition_rate /= 28
+        print('Mean recognition rate: {}%'.format(
+            round(mean_recognition_rate, 2)))
+
     def __getitem__(self, index):
         """Return a sample of the Peale experiment by index."""
         return self.samples[index]
