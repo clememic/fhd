@@ -36,6 +36,11 @@ class FHD(object):
         """Return FHistogram by index."""
         return self.fhistograms[index]
 
+    def normalize(self):
+        for i in range(self.N):
+            for j in range(i, self.N):
+                self.fhistograms[i, j] /= self.fhistograms[i, j].max()
+
     def dump(self, filename):
         """Dump FHD descriptor to file."""
         np.savetxt(filename, self.fhistograms[np.triu_indices(self.N)])
