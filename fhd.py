@@ -20,11 +20,11 @@ def distance(A, B, metric='L2', alpha=None):
     """
     if A.N != B.N:
         raise ValueError('A and B should have the same size.')
+    N = A.N
     if alpha is None:
         alpha = 1 - (2 / (N + 1))
     elif not 0 <= alpha <= 1:
         raise ValueError('alpha should be between 0 and 1.')
-    N = A.N
     shape_distance = 0.0
     spatial_distance = 0.0
     for i in range(N):
