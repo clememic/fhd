@@ -13,7 +13,7 @@ def distance(a, b, metric='L2'):
     """
     Distance between two 1D histograms.
 
-    Available metrics are the L1 distance, the L2 distance, the CHI-2 distance
+    Available metrics are the L1 distance, the L2 distance, the CHI2 distance
     and the CEMD distance.
     """
 
