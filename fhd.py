@@ -8,6 +8,31 @@ import numpy as np
 import hdist
 
 
+def distance(A, B, metric='L2', alpha=None):
+    """
+    Distance between two FHD descriptors.
+
+    alpha must be between 0 and 1 and is a weight level given to the distance
+    between shapes (comparison of N FHistograms) compared to the distance
+    between spatial relations (comparison of (N * (N - 1) / 2) FHistograms).
+    By default, alpha is computed so that shape and spatial relations have the
+    same weight no matter how many FHistograms they contain.
+    """
+    if A.N != B.N:
+        raise ValueError('A and B should have the same size.')
+    if alpha is None:
+        alpha = 1 - (2 / (N + 1))
+    elif not 0 <= alpha <= 1:
+        raise ValueError('alpha should be between 0 and 1.')
+    N = A.N
+    shape_distance = 0.0
+    spatial_distance = 0.0
+    for i in range(N):
+        shape_distance += hdist.distance(A[i, i], B[i, i], metric)
+        for j in range(i + 1, N):
+            spatial_distance += hdist.distance(A[i, j], B[i, j], metric)
+    return (alpha * shape_distance) + ((1 - alpha) * spatial_distance)
+
 class FHD(object):
 
     """FHistogram Decomposition descriptor."""
@@ -75,20 +100,6 @@ class FHD(object):
             ctypes.c_int(width),
             ctypes.c_int(height))
         return fhistogram
-
-    @classmethod
-    def distance(cls, A, B, metric='L2', alpha=None):
-        """Distance between two FHD descriptors."""
-        N = A.N
-        if alpha is None:
-            alpha = 1 - (2 / (N + 1))
-        shape_dist = np.sum(
-            hdist.distance(A[i, i], B[i, i], metric) for i in range(N))
-        spatial_dist = 0.0
-        for i in range(N):
-            for j in range(i + 1, N):
-                spatial_dist += hdist.distance(A[i, j], B[i, j], metric)
-        return (alpha * shape_dist) + ((1 - alpha) * spatial_dist)
 
 
 def meanshift(image, spatial_radius, range_radius, min_density):
