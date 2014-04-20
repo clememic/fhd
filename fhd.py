@@ -5,17 +5,8 @@ import os
 
 import numpy as np
 
-def L1(A, B):
-    """Manhattan distance."""
-    return np.sum(np.abs(A - B))
+import hdist
 
-def L2(A, B):
-    """Euclidean distance."""
-    return np.sqrt(np.sum((A - B) ** 2))
-
-def CHI2(A, B):
-    """Chi-squared distance."""
-    return np.sum(np.nan_to_num(((A - B) ** 2) / (A + B)))
 
 class FHD(object):
 
@@ -86,16 +77,17 @@ class FHD(object):
         return fhistogram
 
     @classmethod
-    def distance(cls, A, B, alpha=None):
+    def distance(cls, A, B, metric='L2', alpha=None):
         """Distance between two FHD descriptors."""
         N = A.N
         if alpha is None:
             alpha = 1 - (2 / (N + 1))
-        shape_dist = np.sum(L2(A[i, i], B[i, i]) for i in range(A.N))
+        shape_dist = np.sum(
+            hdist.distance(A[i, i], B[i, i], metric) for i in range(N))
         spatial_dist = 0.0
         for i in range(N):
             for j in range(i + 1, N):
-                spatial_dist += L2(A[i, j], B[i, j])
+                spatial_dist += hdist.distance(A[i, j], B[i, j], metric)
         return (alpha * shape_dist) + ((1 - alpha) * spatial_dist)
 
 
