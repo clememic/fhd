@@ -7,8 +7,10 @@ import numpy as np
 
 import hdist
 
+matchings = ['default', 'greedy']
 
-def distance(A, B, metric='L2', alpha=None):
+def distance(A, B, metric='L2', matching='default', alpha=None):
+
     """
     Distance between two FHD descriptors.
 
@@ -18,6 +20,7 @@ def distance(A, B, metric='L2', alpha=None):
     By default, alpha is computed so that shape and spatial relations have the
     same weight no matter how many FHistograms they contain.
     """
+
     if A.N != B.N:
         raise ValueError('A and B should have the same size.')
     N = A.N
@@ -25,13 +28,75 @@ def distance(A, B, metric='L2', alpha=None):
         alpha = 1 - (2 / (N + 1))
     elif not 0 <= alpha <= 1:
         raise ValueError('alpha should be between 0 and 1.')
-    shape_distance = 0.0
-    spatial_distance = 0.0
-    for i in range(N):
-        shape_distance += hdist.distance(A[i, i], B[i, i], metric)
-        for j in range(i + 1, N):
-            spatial_distance += hdist.distance(A[i, j], B[i, j], metric)
+    if matching not in matchings:
+        raise ValueError('Incorrect matching strategy.')
+
+    if matching == 'default':
+        shape_distance = 0.0
+        spatial_distance = 0.0
+        for i in range(N):
+            shape_distance += hdist.distance(A[i, i], B[i, i], metric)
+            for j in range(i + 1, N):
+                spatial_distance += hdist.distance(A[i, j], B[i, j], metric)
+
+    elif matching == 'greedy':
+        # First compute distance between shapes by matching them
+        matching_AB = greedy_shape_matching(A, B, metric)
+        matching_BA = greedy_shape_matching(B, A, metric)
+        if matching_AB[0] <= matching_BA[0]:
+            shape_distance = matching_AB[0]
+            matching = matching_AB[1]
+        else:
+            shape_distance = matching_BA[0]
+            matching = matching_BA[1]
+        # Then distance between spatial relations based on matching (matrix
+        # must be reorganized)
+        spatial_distance = 0.0
+        for i in range(N):
+            for j in range(i + 1, N):
+                mi, mj = matching[i], matching[j]
+                if mi <= mj:
+                    spatial_distance += hdist.distance(
+                        A[i, j], B[mi, mj], metric)
+                else:
+                    # In this case, the FHistogram in B must be shifted by
+                    # half its size to mimic the lower diagonal of the matrix
+                    mi, mj = mj, mi
+                    pivot = B.num_dirs // 2
+                    spatial_distance += hdist.distance(
+                        A[i, j], np.roll(B[mi, mj], pivot), metric)
+
+
     return (alpha * shape_distance) + ((1 - alpha) * spatial_distance)
+
+
+def greedy_shape_matching(A, B, metric='L2'):
+    """
+    Return a greedy shape matching between A and B and the associated distance.
+
+    The matching is based on shape information and is computed in a greedy way,
+    that is, each shape of A is matched with its closest shape in B. Such a
+    strategy doesn't guarantee an optimal matching, and most importantly
+    doesn't yeild a symmetric distance (a greedy matching from A to B can be
+    different than from B to A). Symmetry can be preserved by computing both
+    matchings (AB and BA) and keeping the mininmum.
+    """
+    if A.N != B.N:
+        raise ValueError('A and B should have the same size.')
+    N = A.N
+    distance = 0.0
+    matching = {}
+    choices = [n for n in range(N)]
+    for i in range(N):
+        dists = {}
+        for j in choices:
+            dists[hdist.distance(A[i, i], B[j, j], metric)] = j
+        min_dist = min(dists)
+        distance += min_dist
+        matching[i] = dists[min_dist]
+        choices.remove(dists[min_dist])
+    return distance, matching
+
 
 class FHD(object):
 
@@ -120,6 +185,7 @@ def kmeans(samples, num_clusters):
     for index in range(samples.shape[0]):
         samples[index] = clusters[labels[index]]
     return samples, clusters
+
 
 def binary_layers(segm, clusters):
     """Split a segmented image into binary layers."""
