@@ -7,7 +7,28 @@ import numpy as np
 
 import hdist
 
+_lib_fh = os.path.join(os.path.dirname(__file__), 'libfhistograms_raster.so')
+
 matchings = ['default', 'greedy']
+
+
+def fhistogram(A, B, num_dirs=180, force_type=0.0):
+    """Compute an FHistogram between two binary images A and B."""
+    # Load C shared library
+    import ctypes
+    clib = ctypes.cdll.LoadLibrary(_lib_fh)
+    # Compute FHistogram between A and B
+    fhistogram = np.ndarray(num_dirs)
+    height, width = A.shape
+    clib.FRHistogram_CrispRaster(
+        fhistogram.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        ctypes.c_int(num_dirs),
+        ctypes.c_double(force_type),
+        A.ctypes.data_as(ctypes.c_char_p),
+        B.ctypes.data_as(ctypes.c_char_p),
+        ctypes.c_int(width),
+        ctypes.c_int(height))
+    return fhistogram
 
 
 def distance(A, B, metric='L2', matching='default', alpha=None):
@@ -102,9 +123,6 @@ class FHD(object):
 
     """FHistogram Decomposition descriptor."""
 
-    LIB_FHISTOGRAMS = os.path.join(os.path.dirname(__file__),
-                                   'libfhistograms_raster.so')
-
     def __init__(self, fhistograms, shape_force, spatial_force):
         """Create an FHD descriptor."""
         self.N = fhistograms.shape[0]
@@ -146,25 +164,6 @@ class FHD(object):
                     layers[i], layers[j], num_dirs,
                     shape_force if i == j else spatial_force)
         return cls(fhistograms, shape_force, spatial_force)
-
-    @classmethod
-    def compute_fhistogram(cls, A, B, num_dirs=180, force_type=0.0):
-        """Compute an FHistogram between two layers A and B."""
-        # Load C shared library
-        import ctypes
-        clib = ctypes.cdll.LoadLibrary(cls.LIB_FHISTOGRAMS)
-        # Compute FHistogram between A and B
-        fhistogram = np.ndarray(num_dirs)
-        height, width = A.shape
-        clib.FRHistogram_CrispRaster(
-            fhistogram.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-            ctypes.c_int(num_dirs),
-            ctypes.c_double(force_type),
-            A.ctypes.data_as(ctypes.c_char_p),
-            B.ctypes.data_as(ctypes.c_char_p),
-            ctypes.c_int(width),
-            ctypes.c_int(height))
-        return fhistogram
 
 
 def meanshift(image, spatial_radius, range_radius, min_density):
