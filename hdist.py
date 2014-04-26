@@ -8,6 +8,7 @@ metrics = {'L1': ['L1', 'manhattan', 'man'],
            'CHI2': ['CHI2', 'chi2'],
            'CEMD': ['CEMD', 'cemd']}
 
+
 def distance(a, b, metric='L2'):
 
     """
@@ -39,7 +40,7 @@ def distance(a, b, metric='L2'):
         return d
 
     elif metric in metrics['CEMD']:
-        raise NotImplementedError('Coming soon!') # TODO
+        raise NotImplementedError('Coming soon!')  # TODO
 
     else:
         raise ValueError('Not a valid metric.')

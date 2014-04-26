@@ -41,14 +41,13 @@ class Peale(object):
         image = imread(os.path.join(dataset_path, label, name))
         return image
 
-
     def segment(self, num_clusters, spatial_radius, range_radius, min_density):
         """Segment the butterfly image of the current sample."""
         segm, num_modes = fhd.meanshift(self.image, spatial_radius,
                                         range_radius, min_density)
-        bg = (segm == segm[0, 0]).all(segm.ndim - 1) # background mask
-        segm[bg] = np.zeros(segm.shape[-1]) # background in black
-        num_modes -1 # background doesn't count
+        bg = (segm == segm[0, 0]).all(segm.ndim - 1)  # background mask
+        segm[bg] = np.zeros(segm.shape[-1])  # background in black
+        num_modes-1  # background doesn't count
         self.meanshift = segm.copy()
         self.num_modes = num_modes
         segm[~bg], clusters = fhd.kmeans(segm[~bg], num_clusters)
@@ -124,7 +123,7 @@ class PealeExperiment(object):
                     self.samples.append(Peale(label, name, experiment_path))
         self.num_samples = len(self.samples)
 
-    def cross_validate(self, alpha=None):
+    def cross_validate(self, metric='L2', matching='default', alpha=None):
         """Leave-one-out cross validation."""
         from sklearn.cross_validation import LeaveOneOut
         loo = LeaveOneOut(self.num_samples)
@@ -134,7 +133,8 @@ class PealeExperiment(object):
                 str(test[0] + 1).zfill(len(str(self.num_samples))),
                 self.num_samples, A.str_label(), A.str_name()))
             A.neighbors = [self.samples[i] for i in train]
-            A.neighbors.sort(key=lambda n: FHD.distance(A.fhd, n.fhd, alpha))
+            A.neighbors.sort(key=lambda B: fhd.distance(A.fhd, B.fhd, metric,
+                                                        matching, alpha))
 
     def recognition_rates(self):
         labels = {}

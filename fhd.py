@@ -9,6 +9,7 @@ import hdist
 
 matchings = ['default', 'greedy']
 
+
 def distance(A, B, metric='L2', matching='default', alpha=None):
 
     """
@@ -65,7 +66,6 @@ def distance(A, B, metric='L2', matching='default', alpha=None):
                     pivot = B.num_dirs // 2
                     spatial_distance += hdist.distance(
                         A[i, j], np.roll(B[mi, mj], pivot), metric)
-
 
     return (alpha * shape_distance) + ((1 - alpha) * spatial_distance)
 
