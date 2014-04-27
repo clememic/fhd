@@ -12,8 +12,25 @@ _lib_fh = os.path.join(os.path.dirname(__file__), 'libfhistograms_raster.so')
 matchings = ['default', 'greedy']
 
 
-def fhistogram(A, B, num_dirs=180, force_type=0.0):
-    """Compute an FHistogram between two binary images A and B."""
+def fhistogram(A, B=None, num_dirs=180, force_type=0.0):
+    """
+    Compute an FHistogram between two binary images A and B.
+
+    A and B must be two binary images of the same shape. If only A is provided,
+    the FHistogram is computed with itself. num_dirs (> 0) is the number of
+    directions to consider. force_type is the value of the attraction force.
+    """
+    if B is None:
+        B = A
+    if A.shape != B.shape:
+        raise ValueError('A and B must have the same shape.')
+    num_dirs = int(num_dirs)
+    if num_dirs <= 0:
+        raise ValueError('num_dirs must be > 0.')
+    if force_type < 0:
+        raise ValueError('force_type must be >= 0.')
+    if B is A and force_type >= 1:
+        raise ValueError('0 <= force_type < 1 when B == A.')
     # Load C shared library
     import ctypes
     clib = ctypes.cdll.LoadLibrary(_lib_fh)
