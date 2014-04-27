@@ -177,7 +177,7 @@ class FHD(object):
         fhistograms = np.ndarray((N, N, num_dirs))
         for i in range(N):
             for j in range(i, N):
-                fhistograms[i, j] = cls.compute_fhistogram(
+                fhistograms[i, j] = fhistogram(
                     layers[i], layers[j], num_dirs,
                     shape_force if i == j else spatial_force)
         return cls(fhistograms, shape_force, spatial_force)
