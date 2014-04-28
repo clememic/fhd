@@ -136,6 +136,62 @@ def greedy_shape_matching(A, B, metric='L2'):
     return distance, matching
 
 
+def optimal_shape_matching(A, B, metric='L2'):
+    """
+    Return an optimal shape matching between two FHD descriptors, and the
+    resulting sum of distances between shapes.
+
+    This function computes the distance between all possible permutations of
+    shapes of `A` and `B` and returns the minimum one. Careful, it doesn't
+    scale: complexity is N! where N is the number of layers.
+
+    Parameters
+    ----------
+    A : FHD object
+        FHD descriptor, must have the same size as `B`.
+    B : FHD object
+        FHD Descriptor, must have the same size as `A`.
+    metric : {'L1', 'L2', 'CHI2'}, optional
+        Metric used to compute the matching. Default is 'L2'.
+
+    Returns
+    -------
+    distance : float
+        The optimal distance between shapes of `A` and `B`.
+    matching : dict
+        The optimal matching between shapes of `A` and `B`.
+
+    Raises
+    ------
+    ValueError
+        If `A` and `B` don't have the same size.
+
+    """
+    if A.N != B.N:
+        raise ValueError('A and B should have the same size.')
+    N = A.N
+    # Compute distances between each shape of A and B (N * N matrix)
+    distances = np.ndarray((N, N))
+    for i in range(N):
+        for j in range(N):
+            distances[i, j] = hdist.distance(A[i, i], B[j, j], metric)
+    # Compute sum of distances for all possible permutations
+    matchings = {}
+    from itertools import permutations
+    for permutation in permutations(range(N)):
+        distance = 0.0
+        for i, j in enumerate(permutation):
+            distance += distances[i, j]
+        matchings[distance] = permutation
+    # Return the best matching
+    min_distance = min(matchings.keys())
+    best_permutation = matchings[min_distance]
+    optimal_matching = {}
+    for i in range(N):
+        optimal_matching[i] = best_permutation[i]
+    return min_distance, optimal_matching
+
+
 class FHD(object):
 
     """FHistogram Decomposition descriptor."""
