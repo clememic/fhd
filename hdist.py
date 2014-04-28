@@ -1,7 +1,8 @@
-"""Histogram distances module."""
+"""
+Histogram distances module.
+"""
 
 import numpy as np
-from numpy.linalg import norm
 
 metrics = {'L1': ['L1', 'manhattan', 'man'],
            'L2': ['L2', 'euclidean', 'euc'],
@@ -10,14 +11,30 @@ metrics = {'L1': ['L1', 'manhattan', 'man'],
 
 
 def distance(a, b, metric='L2'):
+    """
+    Compute the distance between two 1D histograms.
+
+    Several metrics are available: L1, L2, CHI2 and CEMD.
+
+    Parameters
+    ----------
+    a, b : (N,) ndarray
+        Two histograms between which the distance is computed.
+    metric : str, optional
+        The metric used to compute the distance. Default value is 'L2'.
+
+    Returns
+    -------
+    distance : float
+        The distance between `a` and `b`.
+
+    Raises
+    ------
+    ValueError
+        If `a` and `b` are empty, not 1D or don't have the same size.
+        If `metric` isn't valid.
 
     """
-    Distance between two 1D histograms.
-
-    Available metrics are the L1 distance, the L2 distance, the CHI2 distance
-    and the CEMD distance.
-    """
-
     a, b = np.atleast_1d(a, b)
     if a.ndim > 1 or b.ndim > 1:
         raise ValueError("a and b should be 1D arrays.")
