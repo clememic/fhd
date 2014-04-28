@@ -8,22 +8,37 @@ from scipy.misc import imread, imsave
 import fhd
 from fhd import FHD
 
+DATASET_PATH = os.path.join(os.path.dirname(__file__), 'datasets/peale/')
 
-class Peale(object):
+RGB_TO_LUMA = (0.299, 0.587, 0.114)
 
-    """A Peale object is an sample (a butterfly) of the PEALE dataset."""
+class Sample(object):
 
-    DATASET_PATH = os.path.join(os.path.dirname(__file__), 'datasets/peale/')
+    """
+    A sample is a butterfly image in the PEALE dataset.
 
-    def __init__(self, label, name, base_experiment_path=None):
-        """Load a sample from the PEALE dataset."""
+    Parameters
+    ----------
+    label : int
+        The label of the sample.
+    name : int
+        The name of the sample.
+
+    Attributes
+    ----------
+
+    Notes
+    -----
+
+    """
+
+    def __init__(self, label, name, path=None):
         self.label = label
         self.name = name
-        self.image = self.imread()
-        if base_experiment_path:
-            params = PealeExperiment.get_params(base_experiment_path)
-            path = os.path.join(base_experiment_path, self.str_label(),
-                                self.str_name())
+        self.image = self._imread()
+        if path:
+            params = PealeExperiment.get_params(path)
+            path = os.path.join(path, str(label).zfill(2), str(name).zfill(2))
             self.meanshift = imread(os.path.join(path, 'meanshift.png'))
             self.kmeans = imread(os.path.join(path, 'kmeans.png'))
             self.layers = []
@@ -33,13 +48,11 @@ class Peale(object):
             self.fhd = FHD.load(os.path.join(path, 'fhd.txt'), params['N'],
                                 params['shape_force'], params['spatial_force'])
 
-    def imread(self):
-        """Read and return the butterfly image of the current sample."""
-        dataset_path = self.__class__.DATASET_PATH
-        label = self.str_label()
-        name = self.str_name() + '.jpg'
-        image = imread(os.path.join(dataset_path, label, name))
-        return image
+    def _imread(self):
+        """Return the butterfly image of the current sample."""
+        label = str(self.label).zfill(2)
+        name = str(self.name).zfill(2) + '.jpg'
+        return imread(os.path.join(DATASET_PATH, label, name))
 
     def segment(self, num_clusters, spatial_radius, range_radius, min_density):
         """Segment the butterfly image of the current sample."""
@@ -53,7 +66,7 @@ class Peale(object):
         segm[~bg], clusters = fhd.kmeans(segm[~bg], num_clusters)
         self.kmeans = segm
         self.clusters = np.array(
-            sorted(clusters, key=lambda c: c.dot([0.299, 0.587, 0.114])))
+            sorted(clusters, key=lambda c: c.dot(RGB_TO_LUMA)))
         self.split_into_layers()
 
     def split_into_layers(self):
@@ -65,9 +78,10 @@ class Peale(object):
         self.fhd = FHD.compute_fhd(self.layers, num_dirs, shape_force,
                                    spatial_force)
 
-    def dump(self, base_path):
+    def dump(self, path):
         """Dump the object in directory structure starting with base path."""
-        path = os.path.join(base_path, self.str_label(), self.str_name())
+        path = os.path.join(
+            path, str(self.label).zfill(2), str(self.name).zfill(2))
         if not os.path.exists(path):
             os.makedirs(path)
         meanshift_path = 'meanshift.png'.format(self.num_modes)
@@ -79,19 +93,11 @@ class Peale(object):
             imsave(os.path.join(path, layer_path), layer)
         self.fhd.dump(os.path.join(path, 'fhd.txt'))
 
-    def str_label(self):
-        """Return string version of label attribute."""
-        return str(self.label).zfill(2)
-
-    def str_name(self):
-        """Return string version of name attribute."""
-        return str(self.name).zfill(2)
-
     @classmethod
     def dataset(cls):
         """Return a list of all samples from the PEALE dataset."""
         peales = []
-        for root, dirnames, filenames in os.walk(cls.DATASET_PATH):
+        for root, dirnames, filenames in os.walk(DATASET_PATH):
             if not filenames:
                 continue
             label = int(root[-2:])
