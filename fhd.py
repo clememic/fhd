@@ -1,4 +1,6 @@
-"""FHD descriptors module."""
+"""
+FHD descriptors module.
+"""
 
 import math
 import os
@@ -12,40 +14,69 @@ _lib_fh = os.path.join(os.path.dirname(__file__), 'libfhistograms_raster.so')
 matchings = ['default', 'greedy']
 
 
-def fhistogram(A, B=None, num_dirs=180, force_type=0.0):
+def fhistogram(a, b=None, num_dirs=180, force_type=0.0):
     """
-    Compute an FHistogram between two binary images A and B.
+    Compute an FHistogram between two binary images.
 
-    A and B must be two binary images of the same shape. If only A is provided,
-    the FHistogram is computed with itself. num_dirs (> 0) is the number of
-    directions to consider. force_type is the value of the attraction force.
+    The FHistogram is computed between `a` and `b` images, along `num_dirs`
+    directions and using the attraction force `force_type`.
+
+    Parameters
+    ----------
+    a, b : (w, h,) array_like
+        The two binary images to consider. `a` and `b` must have the same size.
+        If `b` is None, the FHistogram is computer between `a` and `a`.
+    num_dirs : int
+        The number of directions to consider. Default is 180.
+    force_type : float
+        The attraction force used to compute the FHistogram. Default is 0.0.
+
+    Returns
+    -------
+    fh : (num_dirs,) ndarray
+        The FHistogram between `a` and `b` along `num_dirs` directions using
+        the attraction force `force_type`.
+
+    Notes
+    -----
+    The FHistogram is computed using a C shared library called with ctypes.
+
+    fhistogram(a, b) represents the spatial position of `a` relative to `b`.
+    fhistogram(a, a) is the FHistogram representing the shape of `a`.
+    fhistogram(a) is equivalent to fhistogram(a, a).
+
+    The attraction force `force_type` must be < 1 when images are overlapping.
+
     """
-    if B is None:
-        B = A
-    if A.shape != B.shape:
-        raise ValueError('A and B must have the same shape.')
+    if b is None:
+        b = a
+    a, b = np.atleast_2d(a, b)
+    if a.shape != b.shape:
+        raise ValueError('a and b must have the same shape.')
+    if a.ndim != 2 or b.ndim != 2:
+        raise ValueError('a and b must be 2D with one channel.')
     num_dirs = int(num_dirs)
     if num_dirs <= 0:
         raise ValueError('num_dirs must be > 0.')
     if force_type < 0:
         raise ValueError('force_type must be >= 0.')
-    if B is A and force_type >= 1:
-        raise ValueError('0 <= force_type < 1 when B == A.')
+    if b is a and force_type >= 1:
+        raise ValueError('0 <= force_type < 1 when b == a.')
     # Load C shared library
     import ctypes
     clib = ctypes.cdll.LoadLibrary(_lib_fh)
-    # Compute FHistogram between A and B
-    fhistogram = np.ndarray(num_dirs)
-    height, width = A.shape
+    # Compute FHistogram between a and b
+    fh = np.ndarray(num_dirs)
+    height, width = a.shape
     clib.FRHistogram_CrispRaster(
-        fhistogram.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        fh.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
         ctypes.c_int(num_dirs),
         ctypes.c_double(force_type),
-        A.ctypes.data_as(ctypes.c_char_p),
-        B.ctypes.data_as(ctypes.c_char_p),
+        a.ctypes.data_as(ctypes.c_char_p),
+        b.ctypes.data_as(ctypes.c_char_p),
         ctypes.c_int(width),
         ctypes.c_int(height))
-    return fhistogram
+    return fh
 
 
 def distance(A, B, metric='L2', matching='default', alpha=None):

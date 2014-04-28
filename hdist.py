@@ -18,7 +18,7 @@ def distance(a, b, metric='L2'):
 
     Parameters
     ----------
-    a, b : (N,) ndarray
+    a, b : (N,) array_like
         Two histograms between which the distance is computed.
     metric : str, optional
         The metric used to compute the distance. Default value is 'L2'.
@@ -27,12 +27,6 @@ def distance(a, b, metric='L2'):
     -------
     distance : float
         The distance between `a` and `b`.
-
-    Raises
-    ------
-    ValueError
-        If `a` and `b` are empty, not 1D or don't have the same size.
-        If `metric` isn't valid.
 
     """
     a, b = np.atleast_1d(a, b)
