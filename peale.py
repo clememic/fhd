@@ -37,7 +37,7 @@ class Peale(object):
         """Read and return the butterfly image of the current sample."""
         dataset_path = self.__class__.DATASET_PATH
         label = self.str_label()
-        name = self.str_name() + '.jpg'
+        name = self.str_name() + '.png'
         image = imread(os.path.join(dataset_path, label, name))
         return image
 
