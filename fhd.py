@@ -11,7 +11,7 @@ import hdist
 
 _lib_fh = os.path.join(os.path.dirname(__file__), 'libfhistograms_raster.so')
 
-matchings = ['default', 'greedy']
+matchings = ['default', 'greedy', 'optimal']
 
 
 def fhistogram(a, b=None, num_dirs=180, force_type=0.0):
@@ -131,6 +131,21 @@ def distance(A, B, metric='L2', matching='default', alpha=None):
                 else:
                     # In this case, the FHistogram in B must be shifted by
                     # half its size to mimic the lower diagonal of the matrix
+                    mi, mj = mj, mi
+                    pivot = B.num_dirs // 2
+                    spatial_distance += hdist.distance(
+                        A[i, j], np.roll(B[mi, mj], pivot), metric)
+
+    elif matching == 'optimal':
+        shape_distance, matching = optimal_shape_matching(A, B, metric)
+        spatial_distance = 0.0
+        for i in range(N):
+            for j in range(i + 1, N):
+                mi, mj = matching[i], matching[j]
+                if mi <= mj:
+                    spatial_distance += hdist.distance(A[i, j], B[mi, mj],
+                                                       metric)
+                else:
                     mi, mj = mj, mi
                     pivot = B.num_dirs // 2
                     spatial_distance += hdist.distance(
