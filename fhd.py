@@ -13,6 +13,93 @@ _lib_fh = os.path.join(os.path.dirname(__file__), 'libfhistograms_raster.so')
 matchings = ['default', 'greedy', 'optimal']
 
 
+def meanshift(image, spatial_radius, range_radius, min_density):
+    """
+    Segment an image using the meanshift clustering algorithm.
+
+    Arguments
+    ---------
+    image : array_like
+        Input image.
+    spatial_radius : int
+        Spatial radius of the search window.
+    range_radius : float
+        Range radius parameter of the search window.
+    min_density : int
+        Minimum size of a region in the segmented image.
+
+    Returns
+    -------
+    segmented : array_like
+        The segmented image.
+    num_modes : int
+        The number of modes found by the meanshift algorithm.
+
+    Notes
+    -----
+    A custom fork of the "pymeanshift" module [1] is used to perform the
+    meanshift. Details on the algorithm can be found in [2].
+
+    References
+    ----------
+    [1] https://github.com/clememic/pymeanshift
+
+    [2] Dorin Comaniciu and Peter Meer, "Mean Shift: A robust approach toward
+        feature space analysis". IEEE Transactions on Pattern Analysis and
+        Machine Intelligence. 2002. pp. 603-619.
+
+    """
+    from pymeanshift import segment
+    segmented, labels, num_modes = segment(image, spatial_radius, range_radius,
+                                           min_density)
+    return segmented, num_modes
+
+
+def kmeans(samples, num_clusters):
+    """
+    Perform the kmeans clustering algorithm on a list of samples.
+
+    Arguments
+    ---------
+    samples : array_like, shape (n_samples, n_features)
+        The list of samples to cluster.
+    num_clusters : int
+        The number of clusters to form.
+
+    Returns
+    -------
+    samples : array_like, shape(n_samples, n_features)
+        The initial list of samples with new values.
+    clusters : array_like, shape(num_clusters, n_features)
+        The formed clusters.
+
+    Notes
+    -----
+    This function uses the kmeans implementation of the scikit-learn library.
+
+    """
+    from sklearn.cluster import KMeans
+    kmeans = KMeans(n_clusters=num_clusters)
+    kmeans.fit(samples)
+    clusters = kmeans.cluster_centers_.astype(np.uint8)
+    labels = kmeans.labels_
+    for index in range(samples.shape[0]):
+        samples[index] = clusters[labels[index]]
+    return samples, clusters
+
+
+def binary_layers(segm, clusters):
+    """Split a segmented image into binary layers."""
+    N = clusters.shape[0]
+    layers = [np.zeros((segm.shape[0], segm.shape[1]), np.uint8)
+              for i in range(N)]
+    from scipy.ndimage import binary_erosion
+    for index, cluster in enumerate(clusters):
+        layers[index][np.where((segm == cluster).all(segm.ndim - 1))] = 255
+        layers[index] = binary_erosion(layers[index], np.ones((3, 3)))
+    return layers
+
+
 def fhistogram(a, b=None, num_dirs=180, force_type=0.0):
     """
     Compute an FHistogram between two binary images.
@@ -334,35 +421,3 @@ class FHD(object):
                     layers[i], layers[j], num_dirs,
                     shape_force if i == j else spatial_force)
         return cls(fhistograms, shape_force, spatial_force)
-
-
-def meanshift(image, spatial_radius, range_radius, min_density):
-    """Segment an image with meanshift."""
-    import pymeanshift as pyms
-    segm, labels, num_modes = pyms.segment(image, spatial_radius, range_radius,
-                                           min_density, pyms.SPEEDUP_MEDIUM)
-    return segm, num_modes
-
-
-def kmeans(samples, num_clusters):
-    """Perform kmeans clustering on given samples."""
-    from sklearn.cluster import KMeans
-    kmeans = KMeans(n_clusters=num_clusters)
-    kmeans.fit(samples)
-    clusters = kmeans.cluster_centers_.astype(np.uint8)
-    labels = kmeans.labels_
-    for index in range(samples.shape[0]):
-        samples[index] = clusters[labels[index]]
-    return samples, clusters
-
-
-def binary_layers(segm, clusters):
-    """Split a segmented image into binary layers."""
-    N = clusters.shape[0]
-    layers = [np.zeros((segm.shape[0], segm.shape[1]), np.uint8)
-              for i in range(N)]
-    from scipy.ndimage import binary_erosion
-    for index, cluster in enumerate(clusters):
-        layers[index][np.where((segm == cluster).all(segm.ndim - 1))] = 255
-        layers[index] = binary_erosion(layers[index], np.ones((3, 3)))
-    return layers
