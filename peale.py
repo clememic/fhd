@@ -73,7 +73,7 @@ class Sample(object):
     def _imread(self):
         """Return the butterfly image of the current sample."""
         label = str(self.label).zfill(2)
-        name = str(self.name).zfill(2) + '.jpg'
+        name = str(self.name).zfill(2) + '.png'
         return imread(os.path.join(DATASET_PATH, label, name))
 
     def segment(self, num_clusters, spatial_radius, range_radius, min_density):
