@@ -8,7 +8,11 @@ from scipy.misc import imread, imsave
 import fhd
 from fhd import FHD
 
-DATASET_PATH = os.path.join(os.path.dirname(__file__), 'datasets/peale/')
+DATASET_PATH = os.path.join(os.path.dirname(__file__),
+                            'datasets/peale/')
+
+EXPERIMENTS_PATH = os.path.join(os.path.dirname(__file__),
+                                'experiments/peale/')
 
 RGB_TO_LUMA = (0.299, 0.587, 0.114)
 
@@ -32,6 +36,24 @@ def dataset():
             name = int(os.path.splitext(filename)[0])
             samples.append(Sample(label=label, name=name))
     return samples
+
+
+def sample(label, name):
+    """
+    Return a sample of the PEALE dataset.
+    """
+    return Sample(label, name)
+
+
+def get_params(path):
+    """Return a dict containing the parameters of an experiment."""
+    relpath = os.path.relpath(path, EXPERIMENTS_PATH)
+    p = relpath.split('-')
+    params = {'N': int(p[0]), 'num_dirs': int(p[1]),
+              'shape_force': float(p[2]), 'spatial_force': float(p[3]),
+              'spatial_radius': int(p[4]), 'range_radius': float(p[5]),
+              'min_density': int(p[6])}
+    return params
 
 
 class Sample(object):
@@ -70,7 +92,7 @@ class Sample(object):
 
     """
 
-    def __init__(self, label, name, path=None):
+    def __init__(self, label, name, path=None, num_clusters, spatial_radius, range_radius, min_density):
         try:
             self.im = self._imread(label, name)
         except FileNotFoundError:
@@ -78,7 +100,7 @@ class Sample(object):
         self.label = label
         self.name = name
         if path:
-            params = PealeExperiment.get_params(path)
+            params = get_params(path)
             path = os.path.join(path, str(label).zfill(2), str(name).zfill(2))
             self.meanshift = imread(os.path.join(path, 'meanshift.png'))
             self.kmeans = imread(os.path.join(path, 'kmeans.png'))
@@ -135,26 +157,21 @@ class Sample(object):
         self.fhd.dump(os.path.join(path, 'fhd.txt'))
 
 
-class PealeExperiment(object):
+class Experiment(object):
 
-    """Represent an "FHD experiment" on the Peale dataset."""
+    """An experiment on the PEALE dataset."""
 
-    EXPERIMENTS_BASE_PATH = os.path.join(os.path.dirname(__file__),
-                                         'experiments/peale/')
-
-    def __init__(self, experiment_path=None):
-        """Initialize a Peale experiment."""
-        if not experiment_path:
-            self.samples = Peale.dataset()
+    def __init__(self, path=None):
+        if not path:
+            self.samples = dataset()
         else:
             self.samples = []
-            params = self.__class__.get_params(experiment_path)
-            for str_label in os.listdir(experiment_path):
+            for str_label in os.listdir(path):
                 label = int(str_label)
-                label_path = os.path.join(experiment_path, str_label)
+                label_path = os.path.join(path, str_label)
                 for str_name in os.listdir(label_path):
                     name = int(str_name)
-                    self.samples.append(Peale(label, name, experiment_path))
+                    self.samples.append(Sample(label, name, path))
         self.num_samples = len(self.samples)
 
     def cross_validate(self, metric='L2', matching='default', alpha=None):
@@ -163,9 +180,9 @@ class PealeExperiment(object):
         loo = LeaveOneOut(self.num_samples)
         for train, test in loo:
             A = self.samples[test[0]]
-            print('[{}/{}] label={}, name={}'.format(
-                str(test[0] + 1).zfill(len(str(self.num_samples))),
-                self.num_samples, A.str_label(), A.str_name()))
+            # print('[{}/{}] label={}, name={}'.format(
+            #     str(test[0] + 1).zfill(len(str(self.num_samples))),
+            #     self.num_samples, A.str_label(), A.str_name()))
             A.neighbors = [self.samples[i] for i in train]
             A.neighbors.sort(key=lambda B: fhd.distance(A.fhd, B.fhd, metric,
                                                         matching, alpha))
@@ -180,12 +197,12 @@ class PealeExperiment(object):
             labels[sample.label] += 1
             if sample.label == sample.neighbors[0].label:
                 true_positives[sample.label] += 1
-        for label in labels:
-            print('label {}: {}/{}, {}%'.format(
-                str(label).zfill(2),
-                str(true_positives[label]).zfill(2),
-                str(labels[label]).zfill(2),
-                round((true_positives[label] / labels[label]) * 100, 2)))
+        # for label in labels:
+        #     print('label {}: {}/{}, {}%'.format(
+        #         str(label).zfill(2),
+        #         str(true_positives[label]).zfill(2),
+        #         str(labels[label]).zfill(2),
+        #         round((true_positives[label] / labels[label]) * 100, 2)))
         total_tp = 0
         for label in true_positives:
             total_tp += true_positives[label]
@@ -193,7 +210,8 @@ class PealeExperiment(object):
             round((total_tp / self.num_samples) * 100, 2)))
         mean_recognition_rate = 0
         for label in true_positives:
-            mean_recognition_rate += (true_positives[label] / labels[label]) * 100
+            mean_recognition_rate += \
+                (true_positives[label] / labels[label]) * 100
         mean_recognition_rate /= 28
         print('Mean recognition rate: {}%'.format(
             round(mean_recognition_rate, 2)))
@@ -217,14 +235,3 @@ class PealeExperiment(object):
             sample.segment(N, spatial_radius, range_radius, min_density)
             sample.compute_fhd(num_dirs, shape_force, spatial_force)
             sample.dump(base_path)
-
-    @classmethod
-    def get_params(cls, experiment_path):
-        """Return a dict containing the parameters of an experiment."""
-        relpath = os.path.relpath(experiment_path, cls.EXPERIMENTS_BASE_PATH)
-        p = relpath.split('-')
-        params = {'N': int(p[0]), 'num_dirs': int(p[1]),
-                  'shape_force': float(p[2]), 'spatial_force': float(p[3]),
-                  'spatial_radius': int(p[4]), 'range_radius': float(p[5]),
-                  'min_density': int(p[6])}
-        return params
