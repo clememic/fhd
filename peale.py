@@ -117,11 +117,11 @@ class Sample(object):
 
     def segment(self, num_clusters, spatial_radius, range_radius, min_density):
         """Segment the butterfly image of the current sample."""
-        segm, num_modes = fhd.meanshift(self.image, spatial_radius,
+        segm, num_modes = fhd.meanshift(self.im, spatial_radius,
                                         range_radius, min_density)
         bg = (segm == segm[0, 0]).all(segm.ndim - 1)  # background mask
         segm[bg] = np.zeros(segm.shape[-1])  # background in black
-        num_modes-1  # background doesn't count
+        num_modes -= 1  # background doesn't count
         self.meanshift = segm.copy()
         self.num_modes = num_modes
         segm[~bg], clusters = fhd.kmeans(segm[~bg], num_clusters)
