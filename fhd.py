@@ -2,7 +2,6 @@
 FHD descriptors module.
 """
 
-import math
 import os
 
 import numpy as np
@@ -225,7 +224,35 @@ def optimal_shape_matching(A, B, metric='L2'):
 
 class FHD(object):
 
-    """FHistogram Decomposition descriptor."""
+    """
+    FHistogram Decomposition descriptor.
+
+    An FHD object is basically a container for an upper triangular matrix of
+    FHistograms, with a few attributes.
+
+    Parameters
+    ----------
+    fhistograms : array_like
+        Upper trianguler matrix of FHistograms
+    shape_force : float
+        Attraction force used for shape FHistograms.
+    spatial_force : float
+        Attraction force used for spatial relations FHistograms.
+
+    Attributes
+    ----------
+    N : int
+        The number of layers/shapes in the FHD.
+    num_dirs : int
+        The number of directions for each FHistogram of the FHD.
+    fhistograms : (N, N, num_dirs) array_like
+        The underlying FHistograms of the FHD.
+    shape_force : float
+        Attraction force used for shape FHistograms.
+    spatial_force : float
+        Attraction force used for spatial relations FHistograms.
+
+    """
 
     def __init__(self, fhistograms, shape_force, spatial_force):
         """Create an FHD descriptor."""
@@ -236,8 +263,32 @@ class FHD(object):
         self.spatial_force = spatial_force
 
     def __getitem__(self, index):
-        """Return FHistogram by index."""
-        return self.fhistograms[index]
+        """
+        Return FHistograms of the FHD by index.
+
+        This method delegates indexing/slicing of the FHD to its underlying
+        ndarray of FHistograms, supporting NumPy's indexing capabilities. For
+        convenience, if a single integer index is provided, the method returns
+        the shape FHistogram located on the diagonal of the FHD.
+
+        Parameters
+        ----------
+        index : int or array_like
+            Value by which the FHD is indexed.
+
+        Returns
+        -------
+        Indexed FHD by its FHistograms.
+
+        """
+        try:
+            i = int(index)
+            return self.fhistograms[i, i]
+        except TypeError:
+            return self.fhistograms[index]
+
+    def __iter__(self):
+        return iter(self.fhistograms)
 
     def normalize(self):
         for i in range(self.N):
