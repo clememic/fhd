@@ -48,16 +48,35 @@ class Sample(object):
 
     Attributes
     ----------
+    im : array_like
+        Initial butterfly image.
+    label : int
+        Label of the sample.
+    name : int
+        Name of the sample.
+    meanshift : array_like
+        Butterfly segmented by meanshift.
+    kmeans : array_like
+        Butterfly segmented by kmeans.
+    layers : array_like
+        Binary images computed from `kmeans`.
+    fhd : FHD
+        FHD descriptor computed from `layers`.
 
-    Notes
-    -----
+    Raises
+    ------
+    ValueError
+        If `label` and `name` don't correspond to an existing sample.
 
     """
 
     def __init__(self, label, name, path=None):
+        try:
+            self.im = self._imread(label, name)
+        except FileNotFoundError:
+            raise ValueError('Invalid PEALE sample.')
         self.label = label
         self.name = name
-        self.image = self._imread()
         if path:
             params = PealeExperiment.get_params(path)
             path = os.path.join(path, str(label).zfill(2), str(name).zfill(2))
@@ -70,10 +89,10 @@ class Sample(object):
             self.fhd = FHD.load(os.path.join(path, 'fhd.txt'), params['N'],
                                 params['shape_force'], params['spatial_force'])
 
-    def _imread(self):
-        """Return the butterfly image of the current sample."""
-        label = str(self.label).zfill(2)
-        name = str(self.name).zfill(2) + '.png'
+    def _imread(self, label, name):
+        """Return the butterfly image of the requested sample."""
+        label = str(label).zfill(2)
+        name = str(name).zfill(2) + '.png'
         return imread(os.path.join(DATASET_PATH, label, name))
 
     def segment(self, num_clusters, spatial_radius, range_radius, min_density):
