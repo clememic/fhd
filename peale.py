@@ -128,10 +128,6 @@ class Sample(object):
         self.kmeans = segm
         self.clusters = np.array(
             sorted(clusters, key=lambda c: c.dot(RGB_TO_LUMA)))
-        self.split_into_layers()
-
-    def split_into_layers(self):
-        """Split the the current sample into binary layers."""
         self.layers = fhd.binary_layers(self.kmeans, self.clusters)
 
     def compute_fhd(self, num_dirs, shape_force, spatial_force):
