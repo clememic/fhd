@@ -39,13 +39,11 @@ def dataset():
 
 
 def sample(label, name):
-    """
-    Return a sample of the PEALE dataset.
-    """
+    """Load a sample from the PEALE dataset."""
     return Sample(label, name)
 
 
-def get_params(path):
+def _get_params(path):
     """Return a dict containing the parameters of an experiment."""
     relpath = os.path.relpath(path, EXPERIMENTS_PATH)
     p = relpath.split('-')
@@ -64,9 +62,9 @@ class Sample(object):
     Parameters
     ----------
     label : int
-        The label of the sample.
+        Label of the sample.
     name : int
-        The name of the sample.
+        Name of the sample.
 
     Attributes
     ----------
@@ -92,7 +90,7 @@ class Sample(object):
 
     """
 
-    def __init__(self, label, name, path=None, num_clusters, spatial_radius, range_radius, min_density):
+    def __init__(self, label, name, path=None):
         try:
             self.im = self._imread(label, name)
         except FileNotFoundError:
@@ -100,7 +98,7 @@ class Sample(object):
         self.label = label
         self.name = name
         if path:
-            params = get_params(path)
+            params = _get_params(path)
             path = os.path.join(path, str(label).zfill(2), str(name).zfill(2))
             self.meanshift = imread(os.path.join(path, 'meanshift.png'))
             self.kmeans = imread(os.path.join(path, 'kmeans.png'))
