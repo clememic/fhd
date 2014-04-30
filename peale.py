@@ -12,6 +12,28 @@ DATASET_PATH = os.path.join(os.path.dirname(__file__), 'datasets/peale/')
 
 RGB_TO_LUMA = (0.299, 0.587, 0.114)
 
+
+def dataset():
+    """
+    Load all samples from the PEALE dataset.
+
+    Returns
+    -------
+    samples : list
+        The list of all samples from the PEALE dataset.
+
+    """
+    samples = []
+    for root, dirnames, filenames in os.walk(DATASET_PATH):
+        if not filenames:
+            continue
+        label = int(root[-2:])
+        for filename in filenames:
+            name = int(os.path.splitext(filename)[0])
+            samples.append(Sample(label=label, name=name))
+    return samples
+
+
 class Sample(object):
 
     """
@@ -92,19 +114,6 @@ class Sample(object):
             layer_path = 'layers-{}.png'.format(index)
             imsave(os.path.join(path, layer_path), layer)
         self.fhd.dump(os.path.join(path, 'fhd.txt'))
-
-    @classmethod
-    def dataset(cls):
-        """Return a list of all samples from the PEALE dataset."""
-        peales = []
-        for root, dirnames, filenames in os.walk(DATASET_PATH):
-            if not filenames:
-                continue
-            label = int(root[-2:])
-            for filename in filenames:
-                name = int(os.path.splitext(filename)[0])
-                peales.append(cls(label=label, name=name))
-        return peales
 
 
 class PealeExperiment(object):
