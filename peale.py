@@ -112,7 +112,7 @@ class Sample(object):
     def _imread(self, label, name):
         """Return the butterfly image of the requested sample."""
         label = str(label).zfill(2)
-        name = str(name).zfill(2) + '.png'
+        name = str(name).zfill(2) + '.jpg'
         return imread(os.path.join(DATASET_PATH, label, name))
 
     def segment(self, num_clusters, spatial_radius, range_radius, min_density):
@@ -127,7 +127,7 @@ class Sample(object):
         segm[~bg], clusters = fhd.kmeans(segm[~bg], num_clusters)
         self.kmeans = segm
         self.clusters = np.array(
-            sorted(clusters, key=lambda c: c.dot(RGB_TO_LUMA)))
+            sorted(clusters, key=lambda c: c.dot(RGB_TO_LUMA), reverse=True))
         self.layers = fhd.binary_layers(self.kmeans, self.clusters)
 
     def compute_fhd(self, num_dirs, shape_force, spatial_force):
@@ -141,8 +141,8 @@ class Sample(object):
             path, str(self.label).zfill(2), str(self.name).zfill(2))
         if not os.path.exists(path):
             os.makedirs(path)
-        meanshift_path = 'meanshift.png'.format(self.num_modes)
-        kmeans_path = 'kmeans.png'.format(self.clusters.shape[0])
+        meanshift_path = 'meanshift.png'
+        kmeans_path = 'kmeans.png'
         imsave(os.path.join(path, meanshift_path), self.meanshift)
         imsave(os.path.join(path, kmeans_path), self.kmeans)
         for index, layer in enumerate(self.layers):
@@ -217,15 +217,15 @@ class Experiment(object):
     def run_experiment(self, N, num_dirs, shape_force, spatial_force,
                        spatial_radius, range_radius, min_density):
         """Segmentation and FHD descriptors for the Peale dataset."""
-        experiment_path = '-'.join((str(N), str(num_dirs), str(shape_force),
-                                   str(spatial_force), str(spatial_radius),
-                                   str(range_radius), str(min_density)))
-        base_path = os.path.join(self.__class__.EXPERIMENTS_BASE_PATH,
-                                 experiment_path)
+        path = '-'.join((str(N), str(num_dirs), str(shape_force),
+                         str(spatial_force), str(spatial_radius),
+                         str(range_radius), str(min_density)))
+        path = os.path.join(EXPERIMENTS_PATH, path)
         for index, sample in enumerate(self.samples):
             print('[{}/{}] label={}, name={}'.format(
                 str(index + 1).zfill(len(str(self.num_samples))),
-                self.num_samples, sample.str_label(), sample.str_name()))
+                self.num_samples, str(sample.label).zfill(2),
+                str(sample.name).zfill(2)))
             sample.segment(N, spatial_radius, range_radius, min_density)
             sample.compute_fhd(num_dirs, shape_force, spatial_force)
-            sample.dump(base_path)
+            sample.dump(path)
