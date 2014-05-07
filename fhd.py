@@ -166,7 +166,6 @@ def fhistogram(a, b=None, num_dirs=180, force_type=0.0):
 
 
 def distance(A, B, metric='L2', matching='default', alpha=None):
-
     """
     Distance between two FHD descriptors.
 
