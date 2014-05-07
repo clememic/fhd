@@ -155,7 +155,7 @@ class Experiment(object):
 
     """An experiment on the PEALE dataset."""
 
-    def __init__(self, path=None):
+    def __init__(self, path=None, normalized=False):
         if not path:
             self.samples = dataset()
         else:
@@ -165,7 +165,10 @@ class Experiment(object):
                 label_path = os.path.join(path, str_label)
                 for str_name in os.listdir(label_path):
                     name = int(str_name)
-                    self.samples.append(Sample(label, name, path))
+                    sample = Sample(label, name, path)
+                    if normalized:
+                        sample.fhd.normalize()
+                    self.samples.append(sample)
         self.num_samples = len(self.samples)
 
     def cross_validate(self, metric='L2', matching='default', alpha=None):
@@ -174,12 +177,13 @@ class Experiment(object):
         loo = LeaveOneOut(self.num_samples)
         for train, test in loo:
             A = self.samples[test[0]]
-            # print('[{}/{}] label={}, name={}'.format(
-            #     str(test[0] + 1).zfill(len(str(self.num_samples))),
-            #     self.num_samples, A.str_label(), A.str_name()))
             A.neighbors = [self.samples[i] for i in train]
             A.neighbors.sort(key=lambda B: fhd.distance(A.fhd, B.fhd, metric,
                                                         matching, alpha))
+            print('[{}/{}] label={}, nearest_neighbor={}'.format(
+                str(test[0] + 1).zfill(len(str(self.num_samples))),
+                self.num_samples, str(A.label).zfill(2),
+                str(A.neighbors[0].label).zfill(2)))
 
     def recognition_rates(self):
         labels = {}
@@ -191,12 +195,12 @@ class Experiment(object):
             labels[sample.label] += 1
             if sample.label == sample.neighbors[0].label:
                 true_positives[sample.label] += 1
-        # for label in labels:
-        #     print('label {}: {}/{}, {}%'.format(
-        #         str(label).zfill(2),
-        #         str(true_positives[label]).zfill(2),
-        #         str(labels[label]).zfill(2),
-        #         round((true_positives[label] / labels[label]) * 100, 2)))
+        for label in labels:
+            print('label {}: {}/{}, {}%'.format(
+                str(label).zfill(2),
+                str(true_positives[label]).zfill(2),
+                str(labels[label]).zfill(2),
+                round((true_positives[label] / labels[label]) * 100, 2)))
         total_tp = 0
         for label in true_positives:
             total_tp += true_positives[label]
