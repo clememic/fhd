@@ -7,7 +7,8 @@ import numpy as np
 metrics = {'L1': ['L1', 'manhattan', 'man'],
            'L2': ['L2', 'euclidean', 'euc'],
            'CHI2': ['CHI2', 'chi2'],
-           'CEMD': ['CEMD', 'cemd']}
+           'CEMD': ['CEMD', 'cemd'],
+           'jaccard': ['jaccard']}
 
 
 def distance(a, b, metric='L2'):
@@ -52,6 +53,9 @@ def distance(a, b, metric='L2'):
 
     elif metric in metrics['CEMD']:
         raise NotImplementedError('Coming soon!')  # TODO
+
+    elif metric in metrics['jaccard']:
+        return 1 - np.minimum(a, b).sum() / np.maximum(a, b).sum()
 
     else:
         raise ValueError('Not a valid metric.')
