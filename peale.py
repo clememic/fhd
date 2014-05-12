@@ -45,7 +45,7 @@ def sample(label, name):
 
 def _get_params(path):
     """Return a dict containing the parameters of an experiment."""
-    relpath = os.path.relpath(path, EXPERIMENTS_PATH)
+    relpath = os.path.basename(os.path.normpath(path))
     p = relpath.split('-')
     params = {'N': int(p[0]), 'num_dirs': int(p[1]),
               'shape_force': float(p[2]), 'spatial_force': float(p[3]),
@@ -112,7 +112,7 @@ class Sample(object):
     def _imread(self, label, name):
         """Return the butterfly image of the requested sample."""
         label = str(label).zfill(2)
-        name = str(name).zfill(2) + '.jpg'
+        name = str(name).zfill(2) + '.png'
         return imread(os.path.join(DATASET_PATH, label, name))
 
     def segment(self, num_clusters, spatial_radius, range_radius, min_density):
