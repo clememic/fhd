@@ -30,7 +30,6 @@ def distance(a, b, metric='L2'):
         The distance between `a` and `b`.
 
     """
-    a, b = np.atleast_1d(a, b)
     if a.ndim > 1 or b.ndim > 1:
         raise ValueError("a and b should be 1D arrays.")
     if a.size == 0 or b.size == 0:
