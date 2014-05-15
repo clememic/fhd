@@ -82,6 +82,8 @@ def kmeans(image, num_clusters, filter_background=True):
     but the cluster containing the top-left pixel will be deleted.
     This function uses the kmeans implementation of the scikit-learn library.
     The centroid seeds are initialized 10 times with the 'kmeans++' method.
+    The random initializations are always done with the same random number
+    generator so that for a given image, we always get the same clusters.
     The result will be the best output in terms of inertia.
 
     """
@@ -92,7 +94,7 @@ def kmeans(image, num_clusters, filter_background=True):
         samples = segmented.reshape(-1, 3)
     if filter_background:
         num_clusters += 1
-    kmeans = KMeans(n_clusters=num_clusters)
+    kmeans = KMeans(n_clusters=num_clusters, random_state=0)
     kmeans.fit(samples)
     clusters = kmeans.cluster_centers_.astype(np.uint8)
     labels = kmeans.labels_
