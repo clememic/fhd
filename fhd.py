@@ -5,6 +5,8 @@ FHD descriptors module.
 import os
 
 import numpy as np
+import pymeanshift as pyms
+from sklearn.cluster import KMeans
 
 import hdist
 
@@ -31,7 +33,7 @@ def meanshift(image, spatial_radius, range_radius, min_density):
     Returns
     -------
     segmented : array_like
-        The segmented image.
+        Segmented image.
     num_modes : int
         The number of modes found by the meanshift algorithm.
 
@@ -49,53 +51,85 @@ def meanshift(image, spatial_radius, range_radius, min_density):
         Machine Intelligence. 2002. pp. 603-619.
 
     """
-    from pymeanshift import segment
-    segmented, labels, num_modes = segment(image, spatial_radius, range_radius,
-                                           min_density)
+    hs, hr, M = spatial_radius, range_radius, min_density
+    segmented, labels, num_modes = pyms.segment(image, hs, hr, M)
     return segmented, num_modes
 
 
-def kmeans(samples, num_clusters):
+def kmeans(image, num_clusters, filter_background=True):
     """
-    Perform the kmeans clustering algorithm on a list of samples.
+    Segment an image using the kmeans clustering algorithm.
 
     Arguments
     ---------
-    samples : array_like, shape (n_samples, n_features)
-        The list of samples to cluster.
+    image : array_like
+        Input image.
     num_clusters : int
         The number of clusters to form.
+    filter_background : bool, optional, default: True
+        Wheter the background of the image should be filtered.
 
     Returns
     -------
-    samples : array_like, shape(n_samples, n_features)
-        The initial list of samples with new values.
+    segmented : array_like
+        Segmented image.
     clusters : array_like, shape(num_clusters, n_features)
         The formed clusters.
 
     Notes
     -----
+    If `filter_background` is True, this function will form `num_clusters` + 1
+    but the cluster containing the top-left pixel will be deleted.
     This function uses the kmeans implementation of the scikit-learn library.
+    The centroid seeds are initialized 10 times with the 'kmeans++' method.
+    The result will be the best output in terms of inertia.
 
     """
-    from sklearn.cluster import KMeans
+    segmented = image.copy()
+    if segmented.ndim == 2:
+        samples = segmented.reshape(-1, 1)
+    elif segmented.ndim == 3:
+        samples = segmented.reshape(-1, 3)
+    if filter_background:
+        num_clusters += 1
     kmeans = KMeans(n_clusters=num_clusters)
     kmeans.fit(samples)
     clusters = kmeans.cluster_centers_.astype(np.uint8)
     labels = kmeans.labels_
     for index in range(samples.shape[0]):
         samples[index] = clusters[labels[index]]
-    return samples, clusters
+    if filter_background:
+        clusters = clusters[~(clusters == segmented[0, 0]).all(-1)]
+    return segmented, clusters
 
 
-def binary_layers(segm, clusters):
-    """Split a segmented image into binary layers."""
+def layers(segmented, clusters):
+    """
+    Split a segmented image into binary layers, according to its clusters.
+
+    Arguments
+    ---------
+    segmented : array_like
+        Input segmented image.
+    clusters : array_like
+        Clusters in the segmented image.
+
+    Returns
+    -------
+    layers : list of binary images
+        Binary layers of the segmented image.
+
+    Notes
+    -----
+    The layers formed are binary eroded by a 3 * 3 structuring element.
+
+    """
     N = clusters.shape[0]
-    layers = [np.zeros((segm.shape[0], segm.shape[1]), np.uint8)
-              for i in range(N)]
+    layers = [np.zeros(segmented.shape[:2], np.uint8) for i in range(N)]
     from scipy.ndimage import binary_erosion
     for index, cluster in enumerate(clusters):
-        layers[index][np.where((segm == cluster).all(segm.ndim - 1))] = 255
+        mask = np.where((segmented == cluster).all(-1))
+        layers[index][mask] = 255
         layers[index] = binary_erosion(layers[index], np.ones((3, 3)))
     return layers
 
