@@ -170,7 +170,6 @@ def fhistogram(a, b=None, num_dirs=180, force_type=0.0):
     """
     if b is None:
         b = a
-    a, b = np.atleast_2d(a, b)
     if a.shape != b.shape:
         raise ValueError('a and b must have the same shape.')
     if a.ndim != 2 or b.ndim != 2:
@@ -197,6 +196,126 @@ def fhistogram(a, b=None, num_dirs=180, force_type=0.0):
         ctypes.c_int(width),
         ctypes.c_int(height))
     return fh
+
+
+def fhd(layers, num_dirs=180, shape_force=0.0, spatial_force=0.0):
+    """
+    Compute an FHD descriptor with layers extracted from a segmented image.
+
+    Arguments
+    ---------
+    layers : list of binary images
+        Binary layers extracted from a segmented image.
+    num_dirs : int, optional, default=180
+        Number of directions to consider for each FHistogram.
+    shape_force : float, optional, default=0.0
+        Force used for shape FHistograms (diagonal).
+    spatial_force : float, optional, default=0.0
+        Force used for spatial relations FHistograms (upper triangle).
+
+    Returns
+    -------
+    The FHD descriptor object.
+
+    """
+    N = len(layers)
+    fhistograms = np.ndarray((N, N, num_dirs))
+    for i in range(N):
+        fhistograms[i, i] = fhistogram(layers[i], num_dirs=num_dirs,
+                                       force_type=shape_force)
+        for j in range(i + 1, N):
+            fhistograms[i, j] = fhistogram(layers[i], layers[j],
+                                           num_dirs=num_dirs,
+                                           force_type=spatial_force)
+    return FHD(fhistograms, shape_force, spatial_force)
+
+
+class FHD(object):
+
+    """
+    FHistogram Decomposition descriptor.
+
+    An FHD object is basically a container for an upper triangular matrix of
+    FHistograms, with a few attributes.
+
+    Parameters
+    ----------
+    fhistograms : array_like
+        Upper trianguler matrix of FHistograms
+    shape_force : float
+        Attraction force used for shape FHistograms.
+    spatial_force : float
+        Attraction force used for spatial relations FHistograms.
+
+    Attributes
+    ----------
+    N : int
+        The number of layers/shapes in the FHD.
+    num_dirs : int
+        The number of directions for each FHistogram of the FHD.
+    fhistograms : (N, N, num_dirs) array_like
+        The underlying FHistograms of the FHD.
+    shape_force : float
+        Attraction force used for shape FHistograms.
+    spatial_force : float
+        Attraction force used for spatial relations FHistograms.
+
+    """
+
+    def __init__(self, fhistograms, shape_force, spatial_force):
+        """Create an FHD descriptor."""
+        self.N = fhistograms.shape[0]
+        self.num_dirs = fhistograms.shape[2]
+        self.fhistograms = fhistograms
+        self.shapes = self.fhistograms[np.diag_indices(self.N)]
+        self.spatials = self.fhistograms[np.triu_indices(self.N, 1)]
+        self.shape_force = shape_force
+        self.spatial_force = spatial_force
+
+    def __getitem__(self, index):
+        """
+        Return FHistograms of the FHD by index.
+
+        This method delegates indexing/slicing of the FHD to its underlying
+        ndarray of FHistograms, supporting NumPy's indexing capabilities. For
+        convenience, if a single integer index is provided, the method returns
+        the shape FHistogram located on the diagonal of the FHD.
+
+        Parameters
+        ----------
+        index : int or array_like
+            Value by which the FHD is indexed.
+
+        Returns
+        -------
+        Indexed FHD by its FHistograms.
+
+        """
+        try:
+            i = int(index)
+            return self.fhistograms[i, i]
+        except TypeError:
+            return self.fhistograms[index]
+
+    def __iter__(self):
+        return iter(self.fhistograms)
+
+    def normalize(self):
+        for i in range(self.N):
+            for j in range(i, self.N):
+                self.fhistograms[i, j] /= self.fhistograms[i, j].max()
+
+    def dump(self, filename):
+        """Dump FHD descriptor to file."""
+        np.savetxt(filename, self.fhistograms[np.triu_indices(self.N)])
+
+    @classmethod
+    def load(cls, filename, N, shape_force, spatial_force):
+        fhistograms_from_file = np.loadtxt(filename)
+        num_dirs = fhistograms_from_file.shape[-1]
+        fhistograms = np.ndarray((N, N, num_dirs))
+        fhistograms[np.triu_indices(N)] = fhistograms_from_file
+        return cls(fhistograms, shape_force, spatial_force)
 
 
 def distance(A, B, metric='L2', matching='default', alpha=None):
@@ -355,102 +474,3 @@ def optimal_shape_matching(A, B, metric='L2'):
     for i in range(N):
         optimal_matching[i] = best_permutation[i]
     return min_distance, optimal_matching
-
-
-class FHD(object):
-
-    """
-    FHistogram Decomposition descriptor.
-
-    An FHD object is basically a container for an upper triangular matrix of
-    FHistograms, with a few attributes.
-
-    Parameters
-    ----------
-    fhistograms : array_like
-        Upper trianguler matrix of FHistograms
-    shape_force : float
-        Attraction force used for shape FHistograms.
-    spatial_force : float
-        Attraction force used for spatial relations FHistograms.
-
-    Attributes
-    ----------
-    N : int
-        The number of layers/shapes in the FHD.
-    num_dirs : int
-        The number of directions for each FHistogram of the FHD.
-    fhistograms : (N, N, num_dirs) array_like
-        The underlying FHistograms of the FHD.
-    shape_force : float
-        Attraction force used for shape FHistograms.
-    spatial_force : float
-        Attraction force used for spatial relations FHistograms.
-
-    """
-
-    def __init__(self, fhistograms, shape_force, spatial_force):
-        """Create an FHD descriptor."""
-        self.N = fhistograms.shape[0]
-        self.num_dirs = fhistograms.shape[2]
-        self.fhistograms = fhistograms
-        self.shape_force = shape_force
-        self.spatial_force = spatial_force
-
-    def __getitem__(self, index):
-        """
-        Return FHistograms of the FHD by index.
-
-        This method delegates indexing/slicing of the FHD to its underlying
-        ndarray of FHistograms, supporting NumPy's indexing capabilities. For
-        convenience, if a single integer index is provided, the method returns
-        the shape FHistogram located on the diagonal of the FHD.
-
-        Parameters
-        ----------
-        index : int or array_like
-            Value by which the FHD is indexed.
-
-        Returns
-        -------
-        Indexed FHD by its FHistograms.
-
-        """
-        try:
-            i = int(index)
-            return self.fhistograms[i, i]
-        except TypeError:
-            return self.fhistograms[index]
-
-    def __iter__(self):
-        return iter(self.fhistograms)
-
-    def normalize(self):
-        for i in range(self.N):
-            for j in range(i, self.N):
-                self.fhistograms[i, j] /= self.fhistograms[i, j].max()
-
-    def dump(self, filename):
-        """Dump FHD descriptor to file."""
-        np.savetxt(filename, self.fhistograms[np.triu_indices(self.N)])
-
-    @classmethod
-    def load(cls, filename, N, shape_force, spatial_force):
-        fhistograms_from_file = np.loadtxt(filename)
-        num_dirs = fhistograms_from_file.shape[-1]
-        fhistograms = np.ndarray((N, N, num_dirs))
-        fhistograms[np.triu_indices(N)] = fhistograms_from_file
-        return cls(fhistograms, shape_force, spatial_force)
-
-    @classmethod
-    def compute_fhd(cls, layers, num_dirs=180, shape_force=0.0,
-                    spatial_force=0.0):
-        """Compute an FHD descriptor for given layers."""
-        N = len(layers)
-        fhistograms = np.ndarray((N, N, num_dirs))
-        for i in range(N):
-            for j in range(i, N):
-                fhistograms[i, j] = fhistogram(
-                    layers[i], layers[j], num_dirs,
-                    shape_force if i == j else spatial_force)
-        return cls(fhistograms, shape_force, spatial_force)
