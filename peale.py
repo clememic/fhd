@@ -117,23 +117,21 @@ class Sample(object):
 
     def segment(self, num_clusters, spatial_radius, range_radius, min_density):
         """Segment the butterfly image of the current sample."""
+        # Meanshift
         segm, num_modes = fhd.meanshift(self.im, spatial_radius,
                                         range_radius, min_density)
-        bg = (segm == segm[0, 0]).all(segm.ndim - 1)  # background mask
-        segm[bg] = np.zeros(segm.shape[-1])  # background in black
-        num_modes -= 1  # background doesn't count
-        self.meanshift = segm.copy()
-        self.num_modes = num_modes
-        segm[~bg], clusters = fhd.kmeans(segm[~bg], num_clusters)
+        self.meanshift, self.num_modes = segm, num_modes
+        # KMeans
+        segm, clusters = fhd.kmeans(self.meanshift, num_clusters)
         self.kmeans = segm
+        # Binary layers
         self.clusters = np.array(
             sorted(clusters, key=lambda c: c.dot(RGB_TO_LUMA), reverse=True))
-        self.layers = fhd.binary_layers(self.kmeans, self.clusters)
+        self.layers = fhd.layers(self.kmeans, self.clusters)
 
     def compute_fhd(self, num_dirs, shape_force, spatial_force):
         """Compute FHD descriptor of the current samples."""
-        self.fhd = FHD.compute_fhd(self.layers, num_dirs, shape_force,
-                                   spatial_force)
+        self.fhd = fhd.fhd(self.layers, num_dirs, shape_force, spatial_force)
 
     def dump(self, path):
         """Dump the object in directory structure starting with base path."""
