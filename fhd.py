@@ -2,17 +2,25 @@
 FHD descriptors module.
 """
 
+import ctypes
 import os
 
 import numpy as np
 import pymeanshift as pyms
+from scipy.ndimage import binary_erosion
 from sklearn.cluster import KMeans
 
 import hdist
 
-_lib_fh = os.path.join(os.path.dirname(__file__), 'libfhistograms_raster.so')
+# Load C shared library for FHistograms
+libfh = os.path.join(os.path.dirname(__file__), 'libfhistograms_raster.so')
+clib = ctypes.cdll.LoadLibrary(libfh)
 
-matchings = ['default', 'greedy', 'optimal']
+# Different matching strategies
+matchings = ('default', 'greedy', 'optimal')
+
+# Conversion from RGB to Luma value
+rgb_to_luma = (0.299, 0.587, 0.114)
 
 
 def meanshift(image, spatial_radius, range_radius, min_density):
@@ -123,12 +131,13 @@ def layers(segmented, clusters):
 
     Notes
     -----
+    The clusters are sorted by decreasing luma.
     The layers formed are binary eroded by a 3 * 3 structuring element.
 
     """
     N = clusters.shape[0]
+    clusters = sorted(clusters, key=lambda c: c.dot(RGB_TO_LUMA), reverse=True)
     layers = [np.zeros(segmented.shape[:2], np.uint8) for i in range(N)]
-    from scipy.ndimage import binary_erosion
     for index, cluster in enumerate(clusters):
         mask = np.where((segmented == cluster).all(-1))
         layers[index][mask] = 255
@@ -176,18 +185,10 @@ def fhistogram(a, b=None, num_dirs=180, force_type=0.0):
         raise ValueError('a and b must have the same shape.')
     if a.ndim != 2 or b.ndim != 2:
         raise ValueError('a and b must be 2D with one channel.')
-    num_dirs = int(num_dirs)
-    if num_dirs <= 0:
-        raise ValueError('num_dirs must be > 0.')
-    if force_type < 0:
-        raise ValueError('force_type must be >= 0.')
     if b is a and force_type >= 1:
         raise ValueError('0 <= force_type < 1 when b == a.')
-    # Load C shared library
-    import ctypes
-    clib = ctypes.cdll.LoadLibrary(_lib_fh)
-    # Compute FHistogram between a and b
-    fh = np.ndarray(num_dirs)
+    # Compute and return the FHistogram between a and b
+    fhistogram = np.ndarray(num_dirs)
     height, width = a.shape
     clib.FRHistogram_CrispRaster(
         fh.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
@@ -197,7 +198,7 @@ def fhistogram(a, b=None, num_dirs=180, force_type=0.0):
         b.ctypes.data_as(ctypes.c_char_p),
         ctypes.c_int(width),
         ctypes.c_int(height))
-    return fh
+    return fhistogram
 
 
 def fhd(layers, num_dirs=180, shape_force=0.0, spatial_force=0.0):
@@ -223,13 +224,11 @@ def fhd(layers, num_dirs=180, shape_force=0.0, spatial_force=0.0):
     N = len(layers)
     fhistograms = np.ndarray((N, N, num_dirs))
     for i in range(N):
-        fhistograms[i, i] = fhistogram(layers[i], num_dirs=num_dirs,
-                                       force_type=shape_force)
-        for j in range(i + 1, N):
-            fhistograms[i, j] = fhistogram(layers[i], layers[j],
-                                           num_dirs=num_dirs,
-                                           force_type=spatial_force)
-    return FHD(fhistograms, shape_force, spatial_force)
+        for j in range(i, N):
+            fhistograms[i, j] = fhistogram(
+                layers[i], layers[j], num_dirs,
+                shape_force if i == j else spatial_force)
+    return FHD(fhistograms)
 
 
 class FHD(object):
@@ -238,16 +237,12 @@ class FHD(object):
     FHistogram Decomposition descriptor.
 
     An FHD object is basically a container for an upper triangular matrix of
-    FHistograms, with a few attributes.
+    FHistograms.
 
     Parameters
     ----------
     fhistograms : array_like
         Upper trianguler matrix of FHistograms
-    shape_force : float
-        Attraction force used for shape FHistograms.
-    spatial_force : float
-        Attraction force used for spatial relations FHistograms.
 
     Attributes
     ----------
@@ -257,28 +252,20 @@ class FHD(object):
         The number of directions for each FHistogram of the FHD.
     fhistograms : (N, N, num_dirs) array_like
         The underlying FHistograms of the FHD.
-    shape_force : float
-        Attraction force used for shape FHistograms.
-    spatial_force : float
-        Attraction force used for spatial relations FHistograms.
 
     """
 
-    def __init__(self, fhistograms, shape_force, spatial_force):
+    def __init__(self, fhistograms):
         """Create an FHD descriptor."""
         self.N = fhistograms.shape[0]
-        self.num_dirs = fhistograms.shape[2]
+        self.num_dirs = fhistograms.shape[-1]
         self.fhistograms = fhistograms
-        self.shapes = self.fhistograms[np.diag_indices(self.N)]
-        self.spatials = self.fhistograms[np.triu_indices(self.N, 1)]
-        self.shape_force = shape_force
-        self.spatial_force = spatial_force
 
     def __getitem__(self, index):
         """
         Return FHistograms of the FHD by index.
 
-        This method delegates indexing/slicing of the FHD to its underlying
+        This method delegates indexing and slicing of the FHD to its underlying
         ndarray of FHistograms, supporting NumPy's indexing capabilities. For
         convenience, if a single integer index is provided, the method returns
         the shape FHistogram located on the diagonal of the FHD.
@@ -294,8 +281,8 @@ class FHD(object):
 
         """
         try:
-            i = int(index)
-            return self.fhistograms[i, i]
+            index = int(index)
+            return self.fhistograms[index, index]
         except TypeError:
             return self.fhistograms[index]
 
