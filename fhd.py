@@ -103,9 +103,8 @@ def kmeans(image, num_clusters, filter_background=True):
     if filter_background:
         num_clusters += 1
     kmeans = KMeans(n_clusters=num_clusters, random_state=0)
-    kmeans.fit(samples)
+    labels = kmeans.fit_predict(samples)
     clusters = kmeans.cluster_centers_.astype(np.uint8)
-    labels = kmeans.labels_
     for index in range(samples.shape[0]):
         samples[index] = clusters[labels[index]]
     if filter_background:
@@ -136,7 +135,7 @@ def layers(segmented, clusters):
 
     """
     N = clusters.shape[0]
-    clusters = sorted(clusters, key=lambda c: c.dot(RGB_TO_LUMA), reverse=True)
+    clusters = sorted(clusters, key=lambda c: c.dot(rgb_to_luma), reverse=True)
     layers = [np.zeros(segmented.shape[:2], np.uint8) for i in range(N)]
     for index, cluster in enumerate(clusters):
         mask = np.where((segmented == cluster).all(-1))
@@ -191,7 +190,7 @@ def fhistogram(a, b=None, num_dirs=180, force_type=0.0):
     fhistogram = np.ndarray(num_dirs)
     height, width = a.shape
     clib.FRHistogram_CrispRaster(
-        fh.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        fhistogram.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
         ctypes.c_int(num_dirs),
         ctypes.c_double(force_type),
         a.ctypes.data_as(ctypes.c_char_p),
@@ -299,12 +298,12 @@ class FHD(object):
         np.savetxt(filename, self.fhistograms[np.triu_indices(self.N)])
 
     @classmethod
-    def load(cls, filename, N, shape_force, spatial_force):
+    def load(cls, filename, N):
         fhistograms_from_file = np.loadtxt(filename)
         num_dirs = fhistograms_from_file.shape[-1]
         fhistograms = np.ndarray((N, N, num_dirs))
         fhistograms[np.triu_indices(N)] = fhistograms_from_file
-        return cls(fhistograms, shape_force, spatial_force)
+        return cls(fhistograms)
 
 
 def distance(A, B, metric='L2', matching='default', alpha=None):
