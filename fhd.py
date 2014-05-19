@@ -64,7 +64,7 @@ def meanshift(image, spatial_radius, range_radius, min_density):
     return segmented, n_modes
 
 
-def kmeans(image, n_clusters, filter_background=True):
+def kmeans(image, n_clusters):
     """
     Segment an image using the kmeans clustering algorithm.
 
@@ -74,8 +74,6 @@ def kmeans(image, n_clusters, filter_background=True):
         Input image.
     n_clusters : int
         The number of clusters to form.
-    filter_background : bool, optional, default: True
-        Wheter the background of the image should be filtered.
 
     Returns
     -------
@@ -86,8 +84,6 @@ def kmeans(image, n_clusters, filter_background=True):
 
     Notes
     -----
-    If `filter_background` is True, this function will form `n_clusters` + 1
-    clusters but the one assigned to the top-left pixel will be deleted.
     This function uses the kmeans implementation of the scikit-learn library.
     The centroid seeds are initialized 10 times with the 'kmeans++' method.
     The random initializations are always done with the same random number
@@ -100,52 +96,16 @@ def kmeans(image, n_clusters, filter_background=True):
         samples = segmented.reshape(-1, 1)
     elif segmented.ndim == 3:
         samples = segmented.reshape(-1, 3)
-    if filter_background:
-        n_clusters += 1
     kmeans = KMeans(n_clusters=n_clusters, random_state=0)
     labels = kmeans.fit_predict(samples)
     clusters = kmeans.cluster_centers_.astype(np.uint8)
     for index in range(samples.shape[0]):
         samples[index] = clusters[labels[index]]
-    if filter_background:
-        clusters = clusters[~(clusters == segmented[0, 0]).all(-1)]
     return segmented, clusters
 
 
-def split_into_layers(segmented, clusters):
-    """
-    Split a segmented image into binary layers, according to its clusters.
-
-    Parameters
-    ----------
-    segmented : array_like
-        Input segmented image.
-    clusters : array_like
-        Clusters in the segmented image.
-
-    Returns
-    -------
-    layers : list of binary images
-        Binary layers of the segmented image.
-
-    Notes
-    -----
-    The clusters are sorted by decreasing luma.
-    The layers formed are binary eroded by a 3 * 3 structuring element.
-
-    """
-    N = clusters.shape[0]
-    clusters = sorted(clusters, key=lambda c: c.dot(RGB_TO_LUMA), reverse=True)
-    layers = [np.zeros(segmented.shape[:2], np.uint8) for i in range(N)]
-    for index, cluster in enumerate(clusters):
-        mask = np.where((segmented == cluster).all(-1))
-        layers[index][mask] = 255
-        layers[index] = binary_erosion(layers[index], np.ones((3, 3)))
-    return layers
-
-
 def decomposition(image, n_layers, spatial_radius, range_radius, min_density,
-                  filter_background=True):
+                  filter_bg=True):
     """
     Decompose an input image into multiple layers.
 
@@ -163,30 +123,51 @@ def decomposition(image, n_layers, spatial_radius, range_radius, min_density,
         Range radius parameter of the search window.
     min_density : int
         Minimum size of a region in the segmented image.
-    filter_background : bool, optional, default: True
+    filter_bg : bool, optional, default: True
         Wheter the background of the image should be filtered.
 
     Returns
     -------
     layers : list of binary images
         Decomposition of the image into binary layers.
-    km_segm : ndarray
+    kmeans_segmented : ndarray
         Intermediate kmeans segmentation.
-    ms_segm : ndarray
+    meanshift_segmented : ndarray
         Intermediate meanshift segmentation.
+
+    Notes
+    -----
+    If `filter_bg` is True, the kmeans segmentation step will form one
+    more cluster but the one assigned to the top left pixel will be ignored.
+    Layers are sorted by decreasing luma.
+    Layers are binary eroded by a 3 * 3 structuring element.
 
     See also
     --------
     meanshift : Meanshift clustering algorithm.
     kmeans : KMeans clustering algorithm.
-    split_into_layers : Decomposition into binary layers.
 
     """
-    ms_segm, n_modes = meanshift(image, spatial_radius, range_radius,
-                                 min_density)
-    km_segm, clusters = kmeans(ms_segm, n_layers, filter_background)
-    layers = split_into_layers(km_segm, clusters)
-    return layers, km_segm, ms_segm
+    ms = meanshift(image, spatial_radius, range_radius, min_density)
+    meanshift_segmented = ms[0]
+
+    n_clusters = n_layers
+    if filter_bg:
+        n_clusters += 1
+    kmeans_segmented, clusters = kmeans(meanshift_segmented, n_clusters)
+    if filter_bg:
+        # Filter the cluster assigned to the top-left pixel
+        clusters = clusters[~(clusters == kmeans_segmented[0, 0]).all(-1)]
+    # Clusters are sorted by decreasing luma
+    clusters = sorted(clusters, key=lambda c: c.dot(RGB_TO_LUMA), reverse=True)
+
+    layers = [np.zeros(image.shape[:2], np.uint8) for i in range(n_layers)]
+    for index, cluster in enumerate(clusters):
+        mask = np.where((kmeans_segmented == cluster).all(-1))
+        layers[index][mask] = 255
+        layers[index] = binary_erosion(layers[index], np.ones((3, 3)))
+
+    return layers, kmeans_segmented, meanshift_segmented
 
 
 def fhistogram(a, b=None, n_dirs=180, force_type=0.0):
