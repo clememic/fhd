@@ -144,6 +144,51 @@ def split_into_layers(segmented, clusters):
     return layers
 
 
+def decomposition(image, n_layers, spatial_radius, range_radius, min_density,
+                  filter_background=True):
+    """
+    Decompose an input image into multiple layers.
+
+    Returns the obtained layers as well as the intermediate segmentation steps.
+
+    Parameters
+    ----------
+    image : array_like
+        Input image.
+    n_layers : int
+        The number of layers to decompose into.
+    spatial_radius : int
+        Spatial radius of the search window.
+    range_radius : float
+        Range radius parameter of the search window.
+    min_density : int
+        Minimum size of a region in the segmented image.
+    filter_background : bool, optional, default: True
+        Wheter the background of the image should be filtered.
+
+    Returns
+    -------
+    layers : list of binary images
+        Decomposition of the image into binary layers.
+    km_segm : ndarray
+        Intermediate kmeans segmentation.
+    ms_segm : ndarray
+        Intermediate meanshift segmentation.
+
+    See also
+    --------
+    meanshift : Meanshift clustering algorithm.
+    kmeans : KMeans clustering algorithm.
+    split_into_layers : Decomposition into binary layers.
+
+    """
+    ms_segm, n_modes = meanshift(image, spatial_radius, range_radius,
+                                 min_density)
+    km_segm, clusters = kmeans(ms_segm, n_layers, filter_background)
+    layers = split_into_layers(km_segm, clusters)
+    return layers, km_segm, ms_segm
+
+
 def fhistogram(a, b=None, n_dirs=180, force_type=0.0):
     """
     Compute an FHistogram between two binary images.
