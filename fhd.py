@@ -42,7 +42,7 @@ def meanshift(image, spatial_radius, range_radius, min_density):
     -------
     segmented : array_like
         Segmented image.
-    num_modes : int
+    n_modes : int
         The number of modes found by the meanshift algorithm.
 
     Notes
@@ -60,11 +60,11 @@ def meanshift(image, spatial_radius, range_radius, min_density):
 
     """
     hs, hr, M = spatial_radius, range_radius, min_density
-    segmented, labels, num_modes = pyms.segment(image, hs, hr, M)
-    return segmented, num_modes
+    segmented, labels, n_modes = pyms.segment(image, hs, hr, M)
+    return segmented, n_modes
 
 
-def kmeans(image, num_clusters, filter_background=True):
+def kmeans(image, n_clusters, filter_background=True):
     """
     Segment an image using the kmeans clustering algorithm.
 
@@ -72,7 +72,7 @@ def kmeans(image, num_clusters, filter_background=True):
     ----------
     image : array_like
         Input image.
-    num_clusters : int
+    n_clusters : int
         The number of clusters to form.
     filter_background : bool, optional, default: True
         Wheter the background of the image should be filtered.
@@ -86,8 +86,8 @@ def kmeans(image, num_clusters, filter_background=True):
 
     Notes
     -----
-    If `filter_background` is True, this function will form `num_clusters` + 1
-    but the cluster containing the top-left pixel will be deleted.
+    If `filter_background` is True, this function will form `n_clusters` + 1
+    clusters but the one assigned to the top-left pixel will be deleted.
     This function uses the kmeans implementation of the scikit-learn library.
     The centroid seeds are initialized 10 times with the 'kmeans++' method.
     The random initializations are always done with the same random number
@@ -101,8 +101,8 @@ def kmeans(image, num_clusters, filter_background=True):
     elif segmented.ndim == 3:
         samples = segmented.reshape(-1, 3)
     if filter_background:
-        num_clusters += 1
-    kmeans = KMeans(n_clusters=num_clusters, random_state=0)
+        n_clusters += 1
+    kmeans = KMeans(n_clusters=n_clusters, random_state=0)
     labels = kmeans.fit_predict(samples)
     clusters = kmeans.cluster_centers_.astype(np.uint8)
     for index in range(samples.shape[0]):
@@ -144,11 +144,11 @@ def split_into_layers(segmented, clusters):
     return layers
 
 
-def fhistogram(a, b=None, num_dirs=180, force_type=0.0):
+def fhistogram(a, b=None, n_dirs=180, force_type=0.0):
     """
     Compute an FHistogram between two binary images.
 
-    The FHistogram is computed between `a` and `b` images, along `num_dirs`
+    The FHistogram is computed between `a` and `b` images, along `n_dirs`
     directions and using the attraction force `force_type`.
 
     Parameters
@@ -156,16 +156,16 @@ def fhistogram(a, b=None, num_dirs=180, force_type=0.0):
     a, b : (w, h,) array_like
         The two binary images to consider. `a` and `b` must have the same size.
         If `b` is None, the FHistogram is computer between `a` and `a`.
-    num_dirs : int
+    n_dirs : int
         The number of directions to consider. Default is 180.
     force_type : float
         The attraction force used to compute the FHistogram. Default is 0.0.
 
     Returns
     -------
-    fh : (num_dirs,) ndarray
-        The FHistogram between `a` and `b` along `num_dirs` directions using
-        the attraction force `force_type`.
+    fh : (n_dirs,) ndarray
+        The FHistogram between `a` and `b` along `n_dirs` directions using the
+        attraction force `force_type`.
 
     Notes
     -----
@@ -187,11 +187,11 @@ def fhistogram(a, b=None, num_dirs=180, force_type=0.0):
     if b is a and force_type >= 1:
         raise ValueError('0 <= force_type < 1 when b == a.')
     # Compute and return the FHistogram between a and b
-    fhistogram = np.ndarray(num_dirs)
+    fhistogram = np.ndarray(n_dirs)
     height, width = a.shape
     clib.FRHistogram_CrispRaster(
         fhistogram.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-        ctypes.c_int(num_dirs),
+        ctypes.c_int(n_dirs),
         ctypes.c_double(force_type),
         a.ctypes.data_as(ctypes.c_char_p),
         b.ctypes.data_as(ctypes.c_char_p),
@@ -200,7 +200,7 @@ def fhistogram(a, b=None, num_dirs=180, force_type=0.0):
     return fhistogram
 
 
-def fhd(layers, num_dirs=180, shape_force=0.0, spatial_force=0.0):
+def fhd(layers, n_dirs=180, shape_force=0.0, spatial_force=0.0):
     """
     Compute an FHD descriptor with layers extracted from a segmented image.
 
@@ -208,7 +208,7 @@ def fhd(layers, num_dirs=180, shape_force=0.0, spatial_force=0.0):
     ---------
     layers : list of binary images
         Binary layers extracted from a segmented image.
-    num_dirs : int, optional, default=180
+    n_dirs : int, optional, default=180
         Number of directions to consider for each FHistogram.
     shape_force : float, optional, default=0.0
         Force used for shape FHistograms (diagonal).
@@ -221,11 +221,11 @@ def fhd(layers, num_dirs=180, shape_force=0.0, spatial_force=0.0):
 
     """
     N = len(layers)
-    fhistograms = np.ndarray((N, N, num_dirs))
+    fhistograms = np.ndarray((N, N, n_dirs))
     for i in range(N):
         for j in range(i, N):
             fhistograms[i, j] = fhistogram(
-                layers[i], layers[j], num_dirs,
+                layers[i], layers[j], n_dirs,
                 shape_force if i == j else spatial_force)
     return FHD(fhistograms)
 
@@ -233,8 +233,8 @@ def fhd(layers, num_dirs=180, shape_force=0.0, spatial_force=0.0):
 def from_file(filename, N):
     """Load an FHD descriptor from file."""
     fhistograms_from_file = np.loadtxt(filename)
-    num_dirs = fhistograms_from_file.shape[-1]
-    fhistograms = np.ndarray((N, N, num_dirs))
+    n_dirs = fhistograms_from_file.shape[-1]
+    fhistograms = np.ndarray((N, N, n_dirs))
     fhistograms[np.triu_indices(N)] = fhistograms_from_file
     return FHD(fhistograms)
 
@@ -256,9 +256,9 @@ class FHD(object):
     ----------
     N : int
         The number of layers/shapes in the FHD.
-    num_dirs : int
+    n_dirs : int
         The number of directions for each FHistogram of the FHD.
-    fhistograms : (N, N, num_dirs) array_like
+    fhistograms : (N, N, n_dirs) array_like
         The underlying FHistograms of the FHD.
 
     """
@@ -266,7 +266,7 @@ class FHD(object):
     def __init__(self, fhistograms):
         """Create an FHD descriptor."""
         self.N = fhistograms.shape[0]
-        self.num_dirs = fhistograms.shape[-1]
+        self.n_dirs = fhistograms.shape[-1]
         self.fhistograms = fhistograms
 
     def __getitem__(self, index):
@@ -359,7 +359,7 @@ def distance(A, B, metric='L2', matching='default', alpha=None):
                     # In this case, the FHistogram in B must be shifted by
                     # half its size to mimic the lower diagonal of the matrix
                     mi, mj = mj, mi
-                    pivot = B.num_dirs // 2
+                    pivot = B.n_dirs // 2
                     spatial_distance += hdist.distance(
                         A[i, j], np.roll(B[mi, mj], pivot), metric)
 
@@ -374,7 +374,7 @@ def distance(A, B, metric='L2', matching='default', alpha=None):
                                                        metric)
                 else:
                     mi, mj = mj, mi
-                    pivot = B.num_dirs // 2
+                    pivot = B.n_dirs // 2
                     spatial_distance += hdist.distance(
                         A[i, j], np.roll(B[mi, mj], pivot), metric)
 
