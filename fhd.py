@@ -7,7 +7,7 @@ import os
 
 import numpy as np
 import pymeanshift as pyms
-from scipy.ndimage import binary_erosion
+from skimage.morphology import binary_erosion
 from sklearn.cluster import KMeans
 
 import hdist
@@ -161,11 +161,12 @@ def decomposition(image, n_layers, spatial_radius, range_radius, min_density,
     # Clusters are sorted by decreasing luma
     clusters = sorted(clusters, key=lambda c: c.dot(RGB_TO_LUMA), reverse=True)
 
-    layers = [np.zeros(image.shape[:2], np.uint8) for i in range(n_layers)]
+    width, height = image.shape[:2]
+    layers = np.zeros((n_layers, width, height), np.uint8)
     for index, cluster in enumerate(clusters):
         mask = np.where((kmeans_segmented == cluster).all(-1))
         layers[index][mask] = 255
-        layers[index] = binary_erosion(layers[index], np.ones((3, 3)))
+        layers[index] = binary_erosion(layers[index], selem=np.ones((3, 3)))
 
     return layers, kmeans_segmented, meanshift_segmented
 
