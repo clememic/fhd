@@ -17,18 +17,18 @@ libfh = os.path.join(os.path.dirname(__file__), 'libfhistograms_raster.so')
 clib = ctypes.cdll.LoadLibrary(libfh)
 
 # Different matching strategies
-matchings = ('default', 'greedy', 'optimal')
+MATCHINGS = ('default', 'greedy', 'optimal')
 
 # Conversion from RGB to Luma value
-rgb_to_luma = (0.299, 0.587, 0.114)
+RGB_TO_LUMA = (0.299, 0.587, 0.114)
 
 
 def meanshift(image, spatial_radius, range_radius, min_density):
     """
     Segment an image using the meanshift clustering algorithm.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     image : array_like
         Input image.
     spatial_radius : int
@@ -68,8 +68,8 @@ def kmeans(image, num_clusters, filter_background=True):
     """
     Segment an image using the kmeans clustering algorithm.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     image : array_like
         Input image.
     num_clusters : int
@@ -112,12 +112,12 @@ def kmeans(image, num_clusters, filter_background=True):
     return segmented, clusters
 
 
-def layers(segmented, clusters):
+def split_into_layers(segmented, clusters):
     """
     Split a segmented image into binary layers, according to its clusters.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     segmented : array_like
         Input segmented image.
     clusters : array_like
@@ -135,7 +135,7 @@ def layers(segmented, clusters):
 
     """
     N = clusters.shape[0]
-    clusters = sorted(clusters, key=lambda c: c.dot(rgb_to_luma), reverse=True)
+    clusters = sorted(clusters, key=lambda c: c.dot(RGB_TO_LUMA), reverse=True)
     layers = [np.zeros(segmented.shape[:2], np.uint8) for i in range(N)]
     for index, cluster in enumerate(clusters):
         mask = np.where((segmented == cluster).all(-1))
@@ -325,7 +325,7 @@ def distance(A, B, metric='L2', matching='default', alpha=None):
         alpha = 1 - (2 / (N + 1))
     elif not 0 <= alpha <= 1:
         raise ValueError('alpha should be between 0 and 1.')
-    if matching not in matchings:
+    if matching not in MATCHINGS:
         raise ValueError('Incorrect matching strategy.')
 
     if matching == 'default':
