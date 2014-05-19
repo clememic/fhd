@@ -323,10 +323,13 @@ class FHD(object):
     def __iter__(self):
         return iter(self.fhistograms)
 
-    def normalize(self):
-        for i in range(self.N):
-            for j in range(i, self.N):
-                self.fhistograms[i, j] /= self.fhistograms[i, j].max()
+    def normalized(self):
+        """Return a normalized copy of the FHD."""
+        normalized = FHD(self.fhistograms.copy())
+        for i in range(normalized.N):
+            for j in range(i, normalized.N):
+                normalized.fhistograms[i, j] /= normalized[i, j].max()
+        return normalized
 
     def dump(self, filename):
         """Dump FHD descriptor to file."""
