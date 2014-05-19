@@ -230,6 +230,15 @@ def fhd(layers, num_dirs=180, shape_force=0.0, spatial_force=0.0):
     return FHD(fhistograms)
 
 
+def from_file(filename, N):
+    """Load an FHD descriptor from file."""
+    fhistograms_from_file = np.loadtxt(filename)
+    num_dirs = fhistograms_from_file.shape[-1]
+    fhistograms = np.ndarray((N, N, num_dirs))
+    fhistograms[np.triu_indices(N)] = fhistograms_from_file
+    return FHD(fhistograms)
+
+
 class FHD(object):
 
     """
@@ -296,14 +305,6 @@ class FHD(object):
     def dump(self, filename):
         """Dump FHD descriptor to file."""
         np.savetxt(filename, self.fhistograms[np.triu_indices(self.N)])
-
-    @classmethod
-    def load(cls, filename, N):
-        fhistograms_from_file = np.loadtxt(filename)
-        num_dirs = fhistograms_from_file.shape[-1]
-        fhistograms = np.ndarray((N, N, num_dirs))
-        fhistograms[np.triu_indices(N)] = fhistograms_from_file
-        return cls(fhistograms)
 
 
 def distance(A, B, metric='L2', matching='default', alpha=None):
