@@ -7,7 +7,7 @@ import os
 
 import numpy as np
 import pymeanshift as pyms
-from skimage.morphology import binary_erosion
+from skimage.morphology import erosion, square
 from sklearn.cluster import KMeans
 
 import hdist
@@ -166,7 +166,7 @@ def decomposition(image, n_layers, spatial_radius, range_radius, min_density,
     for index, cluster in enumerate(clusters):
         mask = np.where((kmeans_segmented == cluster).all(-1))
         layers[index][mask] = 255
-        layers[index] = binary_erosion(layers[index], selem=np.ones((3, 3)))
+        layers[index] = erosion(layers[index], selem=square(3))
 
     return layers, kmeans_segmented, meanshift_segmented
 
