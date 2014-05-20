@@ -7,9 +7,11 @@ import os
 
 import numpy as np
 import pymeanshift as pyms
+from skimage.io import imsave
 from skimage.morphology import erosion, square
 from sklearn.cluster import KMeans
 
+import datasets
 import hdist
 
 # Load C shared library for FHistograms
@@ -21,6 +23,8 @@ MATCHINGS = ('default', 'greedy', 'optimal')
 
 # Conversion from RGB to Luma value
 RGB_TO_LUMA = (0.299, 0.587, 0.114)
+
+EXPERIMENTS_PATH = os.path.join(os.path.dirname(__file__), 'experiments')
 
 
 def meanshift(image, spatial_radius, range_radius, min_density):
@@ -493,3 +497,64 @@ def optimal_shape_matching(A, B, metric='L2'):
     for i in range(N):
         optimal_matching[i] = best_permutation[i]
     return min_distance, optimal_matching
+
+
+def run_experiment(dataset, n_layers, n_dirs, shape_force, spatial_force,
+                   spatial_radius, range_radius, min_density):
+    """
+    Run an FHD experiment on a dataset.
+
+    This function loops over the images in a dataset and computes an FHD
+    descriptor for each of them, for a giver set of parameters. The descriptor
+    as well as the intermediate decomposition steps are stored on the disk.
+
+    Parameters
+    ----------
+    dataset : str
+        The name of the dataset.
+    n_layers : int
+        Number of layers for the decomposition.
+    n_dirs : int
+        Number of directions to consider for the FHistograms.
+    shape_force : int
+        Attraction force used for shape FHistograms.
+    spatial_force : int
+        Attraction force used for spatial relations FHistograms.
+    spatial_radius : int
+        Spatial radius of the Meanshift's search window.
+    range_radius : float
+        Range radius of the Meanshift's search window.
+    min_density : int
+        Minimum size of a region for the Meanshift.
+
+    """
+    dataset = datasets.load(dataset)
+    num_images = len(dataset.images)
+
+    # Path of the experiment
+    relpath = '{}/{}-{}-{}-{}-{}-{}-{}'.format(dataset.name, n_layers, n_dirs,
+        shape_force, spatial_force, spatial_radius, range_radius, min_density)
+    path = os.path.join(EXPERIMENTS_PATH, relpath)
+
+    for i, image in enumerate(dataset.images):
+        # Print progress
+        print('[{}/{}] {}'.format(str(i + 1).zfill(len(str(num_images))),
+            num_images, dataset.images.files[i]))
+
+        # Decomposition into layers and FHD computation
+        layers, kmeans, meanshift = decomposition(image, n_layers,
+            spatial_radius, range_radius, min_density)
+        fhd_descriptor = fhd(layers, n_dirs, shape_force, spatial_force)
+
+        # Directory for each image in the dataset
+        name = os.path.splitext(dataset.images.files[i].split('/')[-1])[0]
+        curr_path = os.path.join(path, name)
+        if not os.path.exists(curr_path):
+            os.makedirs(curr_path)
+
+        # Dump files (FHD, decomposition steps)
+        fhd_descriptor.dump(os.path.join(curr_path, 'fhd.txt'))
+        for i, layer in enumerate(layers):
+            imsave(os.path.join(curr_path, 'layers-{}.png'.format(i)), layer)
+        imsave(os.path.join(curr_path, 'kmeans.png'), kmeans)
+        imsave(os.path.join(curr_path, 'meanshift.png'), meanshift)
