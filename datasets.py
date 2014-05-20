@@ -9,7 +9,7 @@ from sklearn.datasets.base import Bunch
 PATH = os.path.join(os.path.dirname(__file__), 'datasets')
 
 
-def load_peale(path=None):
+def load_peale():
     """Load the PEALE dataset."""
     images = ImageCollection(os.path.join(PATH, 'peale/*.png'))
     labels = np.array([int(f.split('/')[-1].split('-')[0])
@@ -17,7 +17,7 @@ def load_peale(path=None):
     return Bunch(name='peale', images=images, labels=labels)
 
 
-def load_coil(path=None):
+def load_coil():
     """Load the Coil-100 dataset."""
     images = ImageCollection(os.path.join(PATH, 'coil/*.png'))
     labels = np.array([int(f.split('obj')[-1].split('__')[0])
@@ -25,7 +25,7 @@ def load_coil(path=None):
     return Bunch(name='coil', images=images, labels=labels)
 
 
-def load_motos(path=None):
+def load_motos():
     """"Load the Motos dataset."""
     images = ImageCollection(os.path.join(PATH, 'motos/*.jpg'))
     return Bunch(name='motos', images=images)

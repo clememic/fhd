@@ -3,11 +3,12 @@ FHD descriptors module.
 """
 
 import ctypes
+import glob
 import os
 
 import numpy as np
 import pymeanshift as pyms
-from skimage.io import imsave
+from skimage.io import ImageCollection, imsave
 from skimage.morphology import erosion, square
 from sklearn.cluster import KMeans
 
@@ -558,3 +559,32 @@ def run_experiment(dataset, n_layers, n_dirs, shape_force, spatial_force,
             imsave(os.path.join(curr_path, 'layers-{}.png'.format(i)), layer)
         imsave(os.path.join(curr_path, 'kmeans.png'), kmeans)
         imsave(os.path.join(curr_path, 'meanshift.png'), meanshift)
+
+
+def load_experiment(path):
+    """
+    Load an FHD experiment located at given path.
+
+    Parameters
+    ----------
+    path : str
+        The path of the experiment to load.
+
+    Returns
+    -------
+    experiment : Bunch
+        The loaded FHD experiment.
+
+    """
+    path = os.path.normpath(path)
+    dataset = datasets.load(path.split('/')[-2])
+    n_layers = int(path.split('/')[-1].split('-')[0])
+
+    fhd_files = glob.glob(os.path.join(path, '*/fhd.txt'))
+    fhds = np.array([from_file(fhd_file, n_layers) for fhd_file in fhd_files])
+
+    experiment = dataset
+    experiment['path'] = path
+    experiment['n_layers'] = n_layers
+    experiment['fhds'] = fhds
+    return experiment
