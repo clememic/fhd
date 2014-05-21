@@ -254,93 +254,26 @@ def fhd(layers, n_dirs=180, shape_force=0.0, spatial_force=0.0):
 
     """
     N = len(layers)
-    fhistograms = np.ndarray((N, N, n_dirs))
+    fhd = np.ndarray((N, N, n_dirs))
     for i in range(N):
         for j in range(i, N):
-            fhistograms[i, j] = fhistogram(
+            fhd[i, j] = fhistogram(
                 layers[i], layers[j], n_dirs,
                 shape_force if i == j else spatial_force)
-    return FHD(fhistograms)
+    return fhd
 
 
 def from_file(filename, N):
     """Load an FHD descriptor from file."""
-    fhistograms_from_file = np.loadtxt(filename)
-    n_dirs = fhistograms_from_file.shape[-1]
-    fhistograms = np.ndarray((N, N, n_dirs))
-    fhistograms[np.triu_indices(N)] = fhistograms_from_file
-    return FHD(fhistograms)
+    fhd_from_file = np.loadtxt(filename)
+    n_dirs = fhd_from_file.shape[-1]
+    fhd = np.ndarray((N, N, n_dirs))
+    fhd[np.triu_indices(N)] = fhd_from_file
+    return fhd
 
-
-class FHD(object):
-
-    """
-    FHistogram Decomposition descriptor.
-
-    An FHD object is basically a container for an upper triangular matrix of
-    FHistograms.
-
-    Parameters
-    ----------
-    fhistograms : array_like
-        Upper trianguler matrix of FHistograms
-
-    Attributes
-    ----------
-    N : int
-        The number of layers/shapes in the FHD.
-    n_dirs : int
-        The number of directions for each FHistogram of the FHD.
-    fhistograms : (N, N, n_dirs) array_like
-        The underlying FHistograms of the FHD.
-
-    """
-
-    def __init__(self, fhistograms):
-        """Create an FHD descriptor."""
-        self.N = fhistograms.shape[0]
-        self.n_dirs = fhistograms.shape[-1]
-        self.fhistograms = fhistograms
-
-    def __getitem__(self, index):
-        """
-        Return FHistograms of the FHD by index.
-
-        This method delegates indexing and slicing of the FHD to its underlying
-        ndarray of FHistograms, supporting NumPy's indexing capabilities. For
-        convenience, if a single integer index is provided, the method returns
-        the shape FHistogram located on the diagonal of the FHD.
-
-        Parameters
-        ----------
-        index : int or array_like
-            Value by which the FHD is indexed.
-
-        Returns
-        -------
-        Indexed FHD by its FHistograms.
-
-        """
-        try:
-            index = int(index)
-            return self.fhistograms[index, index]
-        except TypeError:
-            return self.fhistograms[index]
-
-    def __iter__(self):
-        return iter(self.fhistograms)
-
-    def normalized(self):
-        """Return a normalized copy of the FHD."""
-        normalized = FHD(self.fhistograms.copy())
-        for i in range(normalized.N):
-            for j in range(i, normalized.N):
-                normalized.fhistograms[i, j] /= normalized[i, j].max()
-        return normalized
-
-    def dump(self, filename):
-        """Dump FHD descriptor to file."""
-        np.savetxt(filename, self.fhistograms[np.triu_indices(self.N)])
+def to_file(fhd, filename):
+    """Dump FHD descriptor to file."""
+    np.savetxt(filename, fhd[np.triu_indices(self.N)])
 
 
 def distance(A, B, metric='L2', matching='default', alpha=None):
@@ -354,9 +287,9 @@ def distance(A, B, metric='L2', matching='default', alpha=None):
     same weight no matter how many FHistograms they contain.
     """
 
-    if A.N != B.N:
-        raise ValueError('A and B should have the same size.')
-    N = A.N
+    if A.shape != B.shape:
+        raise ValueError('A and B should have the same shape.')
+    N = A.shape[0]
     if alpha is None:
         alpha = 1 - (2 / (N + 1))
     elif not 0 <= alpha <= 1:
@@ -395,7 +328,7 @@ def distance(A, B, metric='L2', matching='default', alpha=None):
                     # In this case, the FHistogram in B must be shifted by
                     # half its size to mimic the lower diagonal of the matrix
                     mi, mj = mj, mi
-                    pivot = B.n_dirs // 2
+                    pivot = B.shape[-1] // 2
                     spatial_distance += hdist.distance(
                         A[i, j], np.roll(B[mi, mj], pivot), metric)
 
@@ -410,7 +343,7 @@ def distance(A, B, metric='L2', matching='default', alpha=None):
                                                        metric)
                 else:
                     mi, mj = mj, mi
-                    pivot = B.n_dirs // 2
+                    pivot = B.shape[-1] // 2
                     spatial_distance += hdist.distance(
                         A[i, j], np.roll(B[mi, mj], pivot), metric)
 
@@ -428,9 +361,9 @@ def greedy_shape_matching(A, B, metric='L2'):
     different than from B to A). Symmetry can be preserved by computing both
     matchings (AB and BA) and keeping the mininmum.
     """
-    if A.N != B.N:
-        raise ValueError('A and B should have the same size.')
-    N = A.N
+    if A.shape != B.shape:
+        raise ValueError('A and B should have the same shape.')
+    N = A.shape[0]
     distance = 0.0
     matching = {}
     choices = [n for n in range(N)]
@@ -476,9 +409,9 @@ def optimal_shape_matching(A, B, metric='L2'):
         If `A` and `B` don't have the same size.
 
     """
-    if A.N != B.N:
-        raise ValueError('A and B should have the same size.')
-    N = A.N
+    if A.shape != B.shape:
+        raise ValueError('A and B should have the same shape.')
+    N = A.shape[0]
     # Compute distances between each shape of A and B (N * N matrix)
     distances = np.ndarray((N, N))
     for i in range(N):
@@ -592,7 +525,7 @@ def run_experiment(dataset, n_layers, n_dirs, shape_force, spatial_force,
             os.makedirs(curr_path)
 
         # Dump files (FHD, decomposition steps)
-        fhd_descriptor.dump(os.path.join(curr_path, 'fhd.txt'))
+        to_file(os.path.join(curr_path, 'fhd.txt'), fhd_descriptor)
         for i, layer in enumerate(layers):
             imsave(os.path.join(curr_path, 'layers-{}.png'.format(i)), layer)
         imsave(os.path.join(curr_path, 'kmeans.png'), kmeans)
