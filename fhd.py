@@ -271,9 +271,9 @@ def from_file(filename, N):
     fhd[np.triu_indices(N)] = fhd_from_file
     return fhd
 
-def to_file(fhd, filename):
+def to_file(filename, fhd):
     """Dump FHD descriptor to file."""
-    np.savetxt(filename, fhd[np.triu_indices(self.N)])
+    np.savetxt(filename, fhd[np.triu_indices(fhd.shape[0])])
 
 
 def distance(A, B, metric='L2', matching='default', alpha=None):
