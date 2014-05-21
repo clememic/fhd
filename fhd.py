@@ -4,6 +4,7 @@ FHD descriptors module.
 
 import ctypes
 import glob
+import heapq
 import os
 
 import numpy as np
@@ -498,6 +499,43 @@ def optimal_shape_matching(A, B, metric='L2'):
     for i in range(N):
         optimal_matching[i] = best_permutation[i]
     return min_distance, optimal_matching
+
+
+def nearest_neighbors(test_set, train_set, n_neighbors=1, metric='L2',
+                      matching='default', alpha=None):
+    """
+    k-Nearest Neighbors algorithm for FHD descriptors.
+
+    Parameters
+    ----------
+    test_set : list of FHD descriptors
+        The test set.
+    train_set : list of FHD descriptors
+        The training set.
+    n_neighbors : int, optional, default = 1
+        The amount of nearest neighbors to search for.
+
+    Returns
+    -------
+    nearest_neighbors : list
+    For each entry of the test set, a list of its nearest neighbors in the
+    train set, each in the form of a tuple (distance, index).
+
+    Notes
+    -----
+    Because the FHD descriptors have a lot of dimensions, nearest neighbors are
+    searched using a naive brute-force implementation.
+
+    """
+    test_set = np.atleast_1d(test_set)
+    nearest_neighbors = []
+    for test in test_set:
+        heap = []
+        for index, train in enumerate(train_set):
+            d = distance(test, train, metric, matching, alpha)
+            heapq.heappush(heap, (d, index))
+        nearest_neighbors += heapq.nsmallest(n_neighbors, heap)
+    return nearest_neighbors
 
 
 def run_experiment(dataset, n_layers, n_dirs, shape_force, spatial_force,
