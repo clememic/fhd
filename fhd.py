@@ -618,7 +618,7 @@ def load_experiment(path):
     dataset = datasets.load(path.split('/')[-2])
     n_layers = int(path.split('/')[-1].split('-')[0])
 
-    fhd_files = glob.glob(os.path.join(path, '*/fhd.txt'))
+    fhd_files = sorted(glob.glob(os.path.join(path, '*/fhd.txt')))
     fhds = np.array([from_file(fhd_file, n_layers) for fhd_file in fhd_files])
 
     experiment = dataset
