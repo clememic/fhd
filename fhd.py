@@ -534,7 +534,7 @@ def nearest_neighbors(test_set, train_set, n_neighbors=1, metric='L2',
         for index, train in enumerate(train_set):
             d = distance(test, train, metric, matching, alpha)
             heapq.heappush(heap, (d, index))
-        nearest_neighbors += heapq.nsmallest(n_neighbors, heap)
+        nearest_neighbors += [heapq.nsmallest(n_neighbors, heap)]
     return nearest_neighbors
 
 
