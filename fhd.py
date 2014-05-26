@@ -280,11 +280,23 @@ def distance(A, B, metric='L2', matching='default', alpha=0.5):
     """
     Distance between two FHD descriptors.
 
-    alpha must be between 0 and 1 and is a weight level given to the distance
-    between shapes (comparison of N FHistograms) compared to the distance
-    between spatial relations (comparison of (N * (N - 1) / 2) FHistograms).
-    """
+    Parameters
+    ----------
+    A, B : ndarrays
+        The FHD descriptors.
+    metric : str
+        The distance metric used to compare histograms.
+    matching : str
+        The matching strategy used.
+    alpha : float between 0 and 1, default is 0.5
+        Weight given to the distance between shapes compared to the distance
+        between spatial relations.
 
+    Returns
+    -------
+    The distance between the two FHD descriptors.
+
+    """
     if A.shape != B.shape:
         raise ValueError('A and B should have the same shape.')
     N = A.shape[0]
@@ -300,19 +312,18 @@ def distance(A, B, metric='L2', matching='default', alpha=0.5):
             shape_distance += hdist.distance(A[i, i], B[i, i], metric)
             for j in range(i + 1, N):
                 spatial_distance += hdist.distance(A[i, j], B[i, j], metric)
-        shape_distance /= N
-        spatial_distance /= ((N * (N - 1)) / 2)
 
     elif matching == 'greedy':
-        # First compute distance between shapes by matching them
-        matching_AB = greedy_shape_matching(A, B, metric)
-        matching_BA = greedy_shape_matching(B, A, metric)
-        if matching_AB[0] <= matching_BA[0]:
-            shape_distance = matching_AB[0]
-            matching = matching_AB[1]
+        # Compute the two possible greedy matchings and keep the minimum sum of
+        # pairwise distances
+        matching_AB, pairwise_distances_AB = greedy_matching(A, B, metric)
+        matching_BA, pairwise_distances_BA = greedy_matching(B, A, metric)
+        if pairwise_distances_AB.sum() <= pairwise_distances_BA.sum():
+            shape_distance = pairwise_distances_AB.sum()
+            matching = matching_AB
         else:
-            shape_distance = matching_BA[0]
-            matching = matching_BA[1]
+            shape_distance = pairwise_distances_BA.sum()
+            matching = matching_BA
         # Then distance between spatial relations based on matching (matrix
         # must be reorganized)
         spatial_distance = 0.0
@@ -329,96 +340,117 @@ def distance(A, B, metric='L2', matching='default', alpha=0.5):
                     pivot = B.shape[-1] // 2
                     spatial_distance += hdist.distance(
                         A[i, j], np.roll(B[mi, mj], pivot), metric)
-        spatial_distance /= ((N * (N - 1)) / 2)
 
     elif matching == 'optimal':
-        shape_distance, matching = optimal_shape_matching(A, B, metric)
+        matching, shape_distance = optimal_matching(A, B, metric)
         spatial_distance = 0.0
         for i in range(N):
             for j in range(i + 1, N):
                 mi, mj = matching[i], matching[j]
                 if mi <= mj:
-                    spatial_distance += hdist.distance(A[i, j], B[mi, mj],
-                                                       metric)
+                    spatial_distance += hdist.distance(
+                        A[i, j], B[mi, mj], metric)
                 else:
                     mi, mj = mj, mi
                     pivot = B.shape[-1] // 2
                     spatial_distance += hdist.distance(
                         A[i, j], np.roll(B[mi, mj], pivot), metric)
-        spatial_distance /= ((N * (N - 1)) / 2)
+
+    # Same weight to each histogram
+    shape_distance /= N
+    spatial_distance /= ((N * (N - 1)) / 2)
 
     return (alpha * shape_distance) + ((1 - alpha) * spatial_distance)
 
 
-def greedy_shape_matching(A, B, metric='L2'):
+def greedy_matching(A, B, metric='L2'):
     """
-    Return a greedy shape matching between A and B and the associated distance.
+    Return a greedy matching between the layers of two FHD descriptors.
 
-    The matching is based on shape information and is computed in a greedy way,
-    that is, each shape of A is matched with its closest shape in B. Such a
-    strategy doesn't guarantee an optimal matching, and most importantly
-    doesn't yeild a symmetric distance (a greedy matching from A to B can be
-    different than from B to A). Symmetry can be preserved by computing both
-    matchings (AB and BA) and keeping the mininmum.
-    """
-    if A.shape != B.shape:
-        raise ValueError('A and B should have the same shape.')
-    N = A.shape[0]
-    distance = 0.0
-    matching = {}
-    choices = [n for n in range(N)]
-    for i in range(N):
-        dists = {}
-        for j in choices:
-            dists[hdist.distance(A[i, i], B[j, j], metric)] = j
-        min_dist = min(dists)
-        distance += min_dist
-        matching[i] = dists[min_dist]
-        choices.remove(dists[min_dist])
-    distance /= N
-    return distance, matching
-
-
-def optimal_shape_matching(A, B, metric='L2'):
-    """
-    Return an optimal shape matching between two FHD descriptors, and the
-    resulting sum of distances between shapes.
-
-    This function computes the distance between all possible permutations of
-    shapes of `A` and `B` and returns the minimum one. Careful, it doesn't
-    scale: complexity is N! where N is the number of layers.
+    The matching is based on shape FHistograms (diagonal of the FHD) and is
+    computed in a greedy way. That is, each shape of A is matched with its
+    closest shape in B, according to a distance metric.
 
     Parameters
     ----------
-    A : FHD object
-        FHD descriptor, must have the same size as `B`.
-    B : FHD object
-        FHD Descriptor, must have the same size as `A`.
-    metric : {'L1', 'L2', 'CHI2'}, optional
-        Metric used to compute the matching. Default is 'L2'.
+    A, B : ndarrays
+        The two FHD descriptors.
+    metric : str
+        The distance metric used to compare histograms.
 
     Returns
-    -------
-    distance : float
-        The optimal distance between shapes of `A` and `B`.
-    matching : dict
-        The optimal matching between shapes of `A` and `B`.
-
-    Raises
     ------
-    ValueError
-        If `A` and `B` don't have the same size.
+    matching : list
+        For each layer of `A`, its matched layer in `B`.
+    pairwise_distances : ndarray
+        Distances between the shape FHistograms of the matched layers.
+
+    Notes
+    -----
+    The function is not symmetric. That is, the greedy matching from `A` to `B`
+    can be different than the one from `B` to `A`. Symmetry can be achieved by
+    computing the two greedy matchings and keeping the minimum resulting sum of
+    pairwise distances.
 
     """
     if A.shape != B.shape:
         raise ValueError('A and B should have the same shape.')
     N = A.shape[0]
-    # Compute distances between each shape of A and B (N * N matrix)
+
+    matching = []
+    pairwise_distances = np.ndarray(N)
+    available_matchings = [i for i in range(N)]
+
+    for i in range(N):
+        distances = [(hdist.distance(A[i, i], B[j, j], metric), j)
+                     for j in available_matchings]
+        min_distance, min_matching = min(distances)
+        available_matchings.remove(min_matching)
+        matching.append(min_matching)
+        pairwise_distances[i] = min_distance
+
+    return matching, pairwise_distances
+
+
+def optimal_matching(A, B, metric='L2'):
+    """
+    Return an optimal matching between the layers of  two FHD descriptors.
+
+    The matching is based on shape FHistograms (diagonal of the FHD). This
+    function computes the sum of pairwise distances between all possible
+    permutations of shape FHistograms of `A` and `B` and returns the minimum
+    one.
+
+    Parameters
+    ----------
+    A, B : ndarrays
+        The two FHD descriptors
+    metric : str, optional
+        The distance metric used to compare histograms.
+
+    Returns
+    -------
+    matching : dict
+        For each layer of `A`, its matched layer in `B`.
+    distance : float
+        Sum of pairwise distances between the shapes of the matched layers.
+
+    Notes
+    -----
+    Careful, complexity is N! where N is the number of layers.
+
+    """
+    if A.shape != B.shape:
+        raise ValueError('A and B should have the same shape.')
+    N = A.shape[0]
+
+    # Distances between all pairwise shapes of A and B (N * N matrix)
     distances = np.ndarray((N, N))
     for i in range(N):
         for j in range(N):
             distances[i, j] = hdist.distance(A[i, i], B[j, j], metric)
-    # Compute sum of distances for all possible permutations
+
+    # Sum of pairwise distances for all possible permutations
     matchings = {}
     from itertools import permutations
     for permutation in permutations(range(N)):
@@ -426,14 +458,14 @@ def optimal_shape_matching(A, B, metric='L2'):
         for i, j in enumerate(permutation):
             distance += distances[i, j]
         matchings[distance] = permutation
+
     # Return the best matching
-    min_distance = min(matchings.keys())
-    best_permutation = matchings[min_distance]
-    optimal_matching = {}
+    distance = min(matchings.keys())
+    best_permutation = matchings[distance]
+    matching = []
     for i in range(N):
-        optimal_matching[i] = best_permutation[i]
-    min_distance /= N
-    return min_distance, optimal_matching
+        matching.append(best_permutation[i])
+    return matching, distance
 
 
 def nearest_neighbors(test_set, train_set, n_neighbors=1, metric='L2',
