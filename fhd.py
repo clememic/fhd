@@ -276,23 +276,19 @@ def to_file(filename, fhd):
     np.savetxt(filename, fhd[np.triu_indices(fhd.shape[0])])
 
 
-def distance(A, B, metric='L2', matching='default', alpha=None):
+def distance(A, B, metric='L2', matching='default', alpha=0.5):
     """
     Distance between two FHD descriptors.
 
     alpha must be between 0 and 1 and is a weight level given to the distance
     between shapes (comparison of N FHistograms) compared to the distance
     between spatial relations (comparison of (N * (N - 1) / 2) FHistograms).
-    By default, alpha is computed so that shape and spatial relations have the
-    same weight no matter how many FHistograms they contain.
     """
 
     if A.shape != B.shape:
         raise ValueError('A and B should have the same shape.')
     N = A.shape[0]
-    if alpha is None:
-        alpha = 1 - (2 / (N + 1))
-    elif not 0 <= alpha <= 1:
+    if not 0 <= alpha <= 1:
         raise ValueError('alpha should be between 0 and 1.')
     if matching not in MATCHINGS:
         raise ValueError('Incorrect matching strategy.')
@@ -304,6 +300,8 @@ def distance(A, B, metric='L2', matching='default', alpha=None):
             shape_distance += hdist.distance(A[i, i], B[i, i], metric)
             for j in range(i + 1, N):
                 spatial_distance += hdist.distance(A[i, j], B[i, j], metric)
+        shape_distance /= N
+        spatial_distance /= ((N * (N - 1)) / 2)
 
     elif matching == 'greedy':
         # First compute distance between shapes by matching them
@@ -331,6 +329,7 @@ def distance(A, B, metric='L2', matching='default', alpha=None):
                     pivot = B.shape[-1] // 2
                     spatial_distance += hdist.distance(
                         A[i, j], np.roll(B[mi, mj], pivot), metric)
+        spatial_distance /= ((N * (N - 1)) / 2)
 
     elif matching == 'optimal':
         shape_distance, matching = optimal_shape_matching(A, B, metric)
@@ -346,6 +345,7 @@ def distance(A, B, metric='L2', matching='default', alpha=None):
                     pivot = B.shape[-1] // 2
                     spatial_distance += hdist.distance(
                         A[i, j], np.roll(B[mi, mj], pivot), metric)
+        spatial_distance /= ((N * (N - 1)) / 2)
 
     return (alpha * shape_distance) + ((1 - alpha) * spatial_distance)
 
@@ -375,6 +375,7 @@ def greedy_shape_matching(A, B, metric='L2'):
         distance += min_dist
         matching[i] = dists[min_dist]
         choices.remove(dists[min_dist])
+    distance /= N
     return distance, matching
 
 
@@ -431,6 +432,7 @@ def optimal_shape_matching(A, B, metric='L2'):
     optimal_matching = {}
     for i in range(N):
         optimal_matching[i] = best_permutation[i]
+    min_distance /= N
     return min_distance, optimal_matching
 
 
