@@ -469,7 +469,7 @@ def optimal_matching(A, B, metric='L2'):
 
 
 def nearest_neighbors(test_set, train_set, n_neighbors=1, metric='L2',
-                      matching='default', alpha=None):
+                      matching='default', alpha=0.5):
     """
     k-Nearest Neighbors algorithm for FHD descriptors.
 
