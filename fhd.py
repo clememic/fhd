@@ -14,6 +14,8 @@ from skimage.io import ImageCollection, imsave
 from skimage.morphology import erosion, square
 from sklearn.cluster import KMeans
 from sklearn.cross_validation import LeaveOneOut
+from joblib import Parallel
+from joblib import delayed
 
 import datasets
 import hdist
@@ -637,14 +639,21 @@ def cross_validate(experiment, n_neighbors=1, metric='L2', matching='default',
     -----
     When `n_neighbors` > 1, a simple majority vote is used to choose the
     predicted label.
+    Cross validation is parallelized across all CPUs with joblib.
 
     """
     n_samples = len(experiment.labels)
-    predictions = np.ndarray(n_samples, int)
     loo = LeaveOneOut(n_samples)
-    for train, test in loo:
-        nn = nearest_neighbors(experiment.fhds[test], experiment.fhds[train],
-                               n_neighbors, metric, matching, alpha)[0]
-        labels = [experiment.labels[train][n[1]] for n in nn]
-        predictions[test], _ = mode(labels)
-    experiment['predictions'] = predictions
+    experiment['predictions'] = Parallel(n_jobs=-1)(
+        delayed(_cross_validate_single)(experiment, n_neighbors, metric,
+                                        matching, alpha, test, train)
+                for train, test in loo)
+
+
+def _cross_validate_single(experiment, n_neighbors, metric, matching, alpha,
+                           test, train):
+    nn = nearest_neighbors(experiment.fhds[test], experiment.fhds[train],
+                           n_neighbors, metric, matching, alpha)[0]
+    labels = [experiment.labels[train][n[1]] for n in nn]
+    prediction = mode(labels)[0][0]
+    return prediction
