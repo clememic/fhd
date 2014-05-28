@@ -11,7 +11,7 @@ metrics = {'L1': ['L1', 'manhattan', 'man'],
            'jaccard': ['jaccard']}
 
 
-def distance(a, b, metric='L2'):
+def distance(a, b, metric='L2', normalized=True):
     """
     Compute the distance between two 1D histograms.
 
@@ -37,6 +37,10 @@ def distance(a, b, metric='L2'):
     if a.size != b.size:
         raise ValueError("a and b should have the same size.")
 
+    if normalized:
+        a = _normalized(a)
+        b = _normalized(b)
+
     if metric in metrics['L1']:
         return np.abs(a - b).sum()
 
@@ -58,3 +62,8 @@ def distance(a, b, metric='L2'):
 
     else:
         raise ValueError('Not a valid metric.')
+
+
+def _normalized(a):
+    """Normalize values of `a` between [0, 1]."""
+    return (a - a.min()) / (a.max() - a.min())
