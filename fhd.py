@@ -256,7 +256,7 @@ def fhd(layers, n_dirs=180, shape_force=0.0, spatial_force=0.0):
 
     """
     N = len(layers)
-    fhd = np.ndarray((N, N, n_dirs))
+    fhd = np.zeros((N, N, n_dirs))
     for i in range(N):
         for j in range(i, N):
             fhd[i, j] = fhistogram(
@@ -269,7 +269,7 @@ def from_file(filename, N):
     """Load an FHD descriptor from file."""
     fhd_from_file = np.loadtxt(filename)
     n_dirs = fhd_from_file.shape[-1]
-    fhd = np.ndarray((N, N, n_dirs))
+    fhd = np.zeros((N, N, n_dirs))
     fhd[np.triu_indices(N)] = fhd_from_file
     return fhd
 
