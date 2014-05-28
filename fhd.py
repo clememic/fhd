@@ -582,6 +582,11 @@ def load_experiment(path):
     experiment : Bunch
         The loaded FHD experiment.
 
+    Notes
+    -----
+    FHistograms are scaled between [0, 1] globally (no loss of information) and
+    independently for shapes and spatial relations.
+
     """
     path = os.path.normpath(path)
     dataset = datasets.load(path.split('/')[-2])
@@ -589,6 +594,15 @@ def load_experiment(path):
 
     fhd_files = sorted(glob.glob(os.path.join(path, '*/fhd.txt')))
     fhds = np.array([from_file(fhd_file, n_layers) for fhd_file in fhd_files])
+
+    # Feature scaling (shapes and spatial relations independently)
+    shapes = np.vstack([_[np.diag_indices(n_layers)] for _ in fhds])
+    spatials = np.vstack([_[np.triu_indices(n_layers, 1)] for _ in fhds])
+    for fhd in fhds:
+        fhd[np.diag_indices(n_layers)] -= shapes.min()
+        fhd[np.diag_indices(n_layers)] /= (shapes.max() - shapes.min())
+        fhd[np.triu_indices(n_layers, 1)] -= spatials.min()
+        fhd[np.triu_indices(n_layers, 1)] /= (spatials.max() - spatials.min())
 
     experiment = dataset
     experiment['path'] = path
