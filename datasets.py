@@ -31,6 +31,14 @@ def load_motos():
     return Bunch(name='motos', images=images)
 
 
+def load_motos_labeled():
+    """Load the labeled Motos dataset."""
+    images = ImageCollection(os.path.join(PATH, 'motos-labeled/*.jpg'))
+    labels = np.array([int(f.split('/')[-1].split('-')[0])
+                       for f in images.files])
+    return Bunch(name='motos-labeled', images=images, labels=labels)
+
+
 def load(dataset):
     """Load a dataset by name."""
     if dataset == 'peale':
@@ -39,6 +47,8 @@ def load(dataset):
         dataset = load_coil()
     elif dataset == 'motos':
         dataset = load_motos()
+    elif dataset == 'motos-labeled':
+        dataset = load_motos_labeled()
     else:
         raise ValueError('Incorrect dataset.')
     return dataset
