@@ -310,55 +310,36 @@ def distance(A, B, metric='L2', matching='default', alpha=0.5):
         raise ValueError('Incorrect matching strategy.')
 
     if matching == 'default':
-        shape_distance = 0.0
-        spatial_distance = 0.0
-        for i in range(N):
-            shape_distance += hdist.distance(A[i, i], B[i, i], metric)
-            for j in range(i + 1, N):
-                spatial_distance += hdist.distance(A[i, j], B[i, j], metric)
+        matching = [i for i in range(N)]
 
     elif matching == 'greedy':
-        # Compute the two possible greedy matchings and keep the minimum sum of
-        # pairwise distances
+        # Two-way greedy matchings, keep the minimum sum of pairwise distances
         matching_AB, pairwise_distances_AB = greedy_matching(A, B, metric)
         matching_BA, pairwise_distances_BA = greedy_matching(B, A, metric)
         if pairwise_distances_AB.sum() <= pairwise_distances_BA.sum():
-            shape_distance = pairwise_distances_AB.sum()
             matching = matching_AB
         else:
-            shape_distance = pairwise_distances_BA.sum()
             matching = matching_BA
-        # Then distance between spatial relations based on matching (matrix
-        # must be reorganized)
-        spatial_distance = 0.0
-        for i in range(N):
-            for j in range(i + 1, N):
-                mi, mj = matching[i], matching[j]
-                if mi <= mj:
-                    spatial_distance += hdist.distance(
-                        A[i, j], B[mi, mj], metric)
-                else:
-                    # In this case, the FHistogram in B must be shifted by
-                    # half its size to mimic the lower diagonal of the matrix
-                    mi, mj = mj, mi
-                    pivot = B.shape[-1] // 2
-                    spatial_distance += hdist.distance(
-                        A[i, j], np.roll(B[mi, mj], pivot), metric)
 
     elif matching == 'optimal':
-        matching, shape_distance = optimal_matching(A, B, metric)
-        spatial_distance = 0.0
-        for i in range(N):
-            for j in range(i + 1, N):
-                mi, mj = matching[i], matching[j]
-                if mi <= mj:
-                    spatial_distance += hdist.distance(
-                        A[i, j], B[mi, mj], metric)
-                else:
-                    mi, mj = mj, mi
-                    pivot = B.shape[-1] // 2
-                    spatial_distance += hdist.distance(
-                        A[i, j], np.roll(B[mi, mj], pivot), metric)
+        matching, _ = optimal_matching(A, B, metric)
+
+    shape_distance = 0.0
+    spatial_distance = 0.0
+    for i in range(N):
+        shape_distance += hdist.distance(A[i, i], B[i, i], metric)
+        for j in range(i + 1, N):
+            mi, mj = matching[i], matching[j]
+            if mi <= mj:
+                spatial_distance += hdist.distance(
+                    A[i, j], B[mi, mj], metric)
+            else:
+                # In this case, the FHistogram in B must be shifted by
+                # half its size to mimic the lower diagonal of the matrix
+                mi, mj = mj, mi
+                pivot = B.shape[-1] // 2
+                spatial_distance += hdist.distance(
+                    A[i, j], np.roll(B[mi, mj], pivot), metric)
 
     # Same weight to each histogram
     shape_distance /= N
@@ -406,7 +387,8 @@ def greedy_matching(A, B, metric='L2'):
     available_matchings = [i for i in range(N)]
 
     for i in range(N):
-        distances = [(hdist.distance(A[i, i], B[j, j], metric), j)
+        distances = [(hdist.distance(A[i, i], B[j, j], metric,
+                                     normalized=False), j)
                      for j in available_matchings]
         min_distance, min_matching = min(distances)
         available_matchings.remove(min_matching)
