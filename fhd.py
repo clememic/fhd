@@ -24,7 +24,8 @@ import hdist
 libfh = os.path.join(os.path.dirname(__file__), 'libfhistograms_raster.so')
 clib = ctypes.cdll.LoadLibrary(libfh)
 
-# Different matching strategies
+# Different alignments and matching strategies
+ALIGNMENTS = ('luminance', 'size')
 MATCHINGS = ('default', 'greedy', 'optimal')
 
 # Conversion from RGB to Luma value
@@ -267,12 +268,60 @@ def fhd(layers, n_dirs=180, shape_force=0.0, spatial_force=0.0):
     return fhd
 
 
-def from_file(filename, N):
-    """Load an FHD descriptor from file."""
+def from_file(filename, N, alignment='luminance'):
+    """
+    Load an FHD descriptor from file.
+
+    Parameters
+    ----------
+    filename : str
+        Path of the FHD file.
+    N : int
+        Number of layers in the FHD.
+    alignment : str, default = 'luminance'
+        The alignment of layers for the FHD.
+
+    Returns
+    -------
+    The FHD descriptor array.
+
+    Notes
+    -----
+    Size alignment is done by sorting layers according to the (approximate)
+    integral of each shape descriptor (FHistograms on the diagonal). This way,
+    we don't have to load the underlying binary image of each layer.
+
+    """
+    if alignment not in ALIGNMENTS:
+        raise ValueError("Incorrect alignment.")
+
+    # Load FHD from file, default alignment of layers should be by luminance
     fhd_from_file = np.loadtxt(filename)
     n_dirs = fhd_from_file.shape[-1]
     fhd = np.zeros((N, N, n_dirs))
     fhd[np.triu_indices(N)] = fhd_from_file
+
+    if alignment == 'size':
+        # Reorganize the FHD with layers sorted by decreasing size
+        # Just reassign a new FHD (in-place = brainfuck)
+        sorted_fhd = np.zeros((N, N, n_dirs))
+        argsort_size = np.argsort([np.trapz(fhd[i, i])
+                                   for i in range(N)])[::-1]
+        for i in range(N):
+            si = argsort_size[i]
+            sorted_fhd[si, si] = fhd[i, i]
+            for j in range(i + 1, N):
+                sj = argsort_size[j]
+                if si < sj:
+                    sorted_fhd[si, sj] = fhd[i, j]
+                else:
+                    # si > sj (they cannot be equal)
+                    # Swap new indices to stay on upper triangle, and shift
+                    # the FHistogram (semantic inverse)
+                    pivot = fhd.shape[-1] // 2
+                    sorted_fhd[sj, si] = np.roll(fhd[i, j], pivot)
+        fhd = sorted_fhd
+
     return fhd
 
 def to_file(filename, fhd):
@@ -552,7 +601,7 @@ def run_experiment(dataset, n_layers, n_dirs, shape_force, spatial_force,
         imsave(os.path.join(curr_path, 'meanshift.png'), meanshift)
 
 
-def load_experiment(path):
+def load_experiment(path, alignment='luminance'):
     """
     Load an FHD experiment located at given path.
 
@@ -560,6 +609,8 @@ def load_experiment(path):
     ----------
     path : str
         The path of the experiment to load.
+    alignment : str, default = 'luminance'
+        Default alignment of layers for the FHDs.
 
     Returns
     -------
@@ -576,8 +627,12 @@ def load_experiment(path):
     dataset = datasets.load(path.split('/')[-2])
     n_layers = int(path.split('/')[-1].split('-')[0])
 
+    if alignment not in ALIGNMENTS:
+        raise ValueError("Incorrect alignment.")
+
     fhd_files = sorted(glob.glob(os.path.join(path, '*/fhd.txt')))
-    fhds = np.array([from_file(fhd_file, n_layers) for fhd_file in fhd_files])
+    fhds = np.array([from_file(fhd_file, n_layers, alignment=alignment)
+                     for fhd_file in fhd_files])
 
     # Feature scaling (shapes and spatial relations independently)
     shapes = np.vstack([_[np.diag_indices(n_layers)] for _ in fhds])
