@@ -14,6 +14,7 @@ from skimage.io import ImageCollection, imsave
 from skimage.morphology import erosion, square
 from sklearn.cluster import KMeans
 from sklearn.cross_validation import LeaveOneOut
+from sklearn.metrics import accuracy_score, classification_report
 from joblib import Parallel
 from joblib import delayed
 
@@ -685,7 +686,18 @@ def cross_validate(experiment, n_neighbors=1, metric='L2', matching='default',
         delayed(_cross_validate_single)(experiment, n_neighbors, metric,
                                         matching, alpha, test, train)
                 for train, test in loo)
-
+    # Dump results
+    path = experiment.path.replace('experiments', 'results')
+    if not os.path.exists(path):
+        os.makedirs(path)
+    path = os.path.join(path, '{}-{}.txt'.format(metric, matching))
+    results_file = open(path, 'w+')
+    accuracy = accuracy_score(experiment.labels, experiment.predictions)
+    results_file.write(str(np.round(accuracy, 2)))
+    results_file.write('\n')
+    results_file.write(classification_report(experiment.labels,
+                                             experiment.predictions))
+    results_file.close()
 
 def _cross_validate_single(experiment, n_neighbors, metric, matching, alpha,
                            test, train):
