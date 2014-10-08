@@ -695,6 +695,54 @@ def _cross_validate_single(experiment, n_neighbors, metric, matching, alpha,
     return prediction
 
 
+def alpha_learning(experiment, n_neighbors=1, metric='L2', matching='default'):
+    """
+    Learn 'optimal' alpha values for each class of the dataset.
+
+    Parameters
+    ----------
+    experiment : Bunch
+        An FHD experiment on a labeled dataset.
+    n_neighbors : int, optional, default = 1
+        The number of nearest neighbors to consider.
+    metric : str
+        The distance metric used to compare histograms.
+    matching : str
+        The matching strategy used.
+
+    Returns
+    -------
+    best_alphas : list
+        The best alpha values obtained for each class of the dataset.
+
+    Notes
+    -----
+    alpha values between 0.1 and 0.9 are tried with a step of 0.1.
+    The default alpha value is 0.5 (if a class is not recognized).
+
+    """
+    alphas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    n_samples = len(experiment.labels)
+    n_labels = len(np.unique(experiment.labels))
+    best_alphas = np.zeros(n_labels) + 0.5
+    best_rec_rates = np.zeros(n_labels)
+    for alpha in alphas:
+        cross_validate(experiment, n_neighbors=n_neighbors, metric=metric,
+                       matching=matching, alpha=alpha)
+        # Compute recognition rate for each class
+        true_positives = np.zeros(n_labels)
+        for i in range(n_samples):
+            if experiment.predictions[i] == experiment.labels[i]:
+                true_positives[experiment.labels[i] - 1] += 1
+        rec_rates = true_positives / np.bincount(experiment.labels)[1:]
+        # Keep track of best alpha values for each class
+        for i, rec_rate in enumerate(rec_rates):
+            if rec_rate > best_rec_rates[i]:
+                best_rec_rates[i] = rec_rate
+                best_alphas[i] = alpha
+    return best_alphas
+
+
 def dump_results(experiment):
     """
     Dump results of an experiment.
