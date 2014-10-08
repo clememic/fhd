@@ -511,7 +511,7 @@ def nearest_neighbors(test_sample, train_set, n_neighbors=1, metric='L2',
 
     Parameters
     ----------
-    test_sample : list of FHD descriptors
+    test_sample : FHD descriptor
         The test sample.
     train_set : list of FHD descriptors
         The training set.
