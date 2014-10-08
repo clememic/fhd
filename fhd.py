@@ -686,18 +686,7 @@ def cross_validate(experiment, n_neighbors=1, metric='L2', matching='default',
         delayed(_cross_validate_single)(experiment, n_neighbors, metric,
                                         matching, alpha, test, train)
                 for train, test in loo)
-    # Dump results
-    path = experiment.path.replace('experiments', 'results')
-    if not os.path.exists(path):
-        os.makedirs(path)
-    path = os.path.join(path, '{}-{}.txt'.format(metric, matching))
-    results_file = open(path, 'w+')
-    accuracy = accuracy_score(experiment.labels, experiment.predictions)
-    results_file.write(str(np.round(accuracy, 2)))
-    results_file.write('\n')
-    results_file.write(classification_report(experiment.labels,
-                                             experiment.predictions))
-    results_file.close()
+
 
 def _cross_validate_single(experiment, n_neighbors, metric, matching, alpha,
                            test, train):
@@ -706,3 +695,26 @@ def _cross_validate_single(experiment, n_neighbors, metric, matching, alpha,
     labels = [experiment.labels[train][n[1]] for n in nn]
     prediction = mode(labels)[0][0]
     return prediction
+
+
+def dump_results(experiment):
+    """
+    Dump results of an experiment.
+
+    Parameters
+    ----------
+    experiment : Bunch
+        An FHD experiment on a labeled dataset.
+
+    """
+    path = experiment.path.replace('experiments', 'results')
+    if not os.path.exists(path):
+        os.makedirs(path)
+    path = os.path.join(path, '{}-{}.txt'.format(metric, matching))
+    results_file = open(path, 'w+')
+    accuracy = accuracy_score(experiment.labels, experiment.predictions)
+    results_file.write('Recognition rate: ' + str(np.round(accuracy, 3) * 100))
+    results_file.write('\n')
+    results_file.write(classification_report(experiment.labels,
+                                             experiment.predictions))
+    results_file.close()
