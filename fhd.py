@@ -504,15 +504,15 @@ def optimal_matching(A, B, metric='L2'):
     return matching, distance
 
 
-def nearest_neighbors(test_set, train_set, n_neighbors=1, metric='L2',
+def nearest_neighbors(test_sample, train_set, n_neighbors=1, metric='L2',
                       matching='default', alpha=0.5):
     """
     k-Nearest Neighbors algorithm for FHD descriptors.
 
     Parameters
     ----------
-    test_set : list of FHD descriptors
-        The test set.
+    test_sample : list of FHD descriptors
+        The test sample.
     train_set : list of FHD descriptors
         The training set.
     n_neighbors : int, optional, default = 1
@@ -521,8 +521,8 @@ def nearest_neighbors(test_set, train_set, n_neighbors=1, metric='L2',
     Returns
     -------
     nearest_neighbors : list
-    For each entry of the test set, a list of its nearest neighbors in the
-    train set, each in the form of a tuple (distance, index).
+    The list of nearest neighbors in the train set for the test sample, each in
+    the form of a tuple (distance, index).
 
     Notes
     -----
@@ -530,14 +530,12 @@ def nearest_neighbors(test_set, train_set, n_neighbors=1, metric='L2',
     searched using a naive brute-force implementation.
 
     """
-    test_set = np.atleast_1d(test_set)
     nearest_neighbors = []
-    for test in test_set:
-        heap = []
-        for index, train in enumerate(train_set):
-            d = distance(test, train, metric, matching, alpha)
-            heapq.heappush(heap, (d, index))
-        nearest_neighbors += [heapq.nsmallest(n_neighbors, heap)]
+    heap = []
+    for index, train in enumerate(train_set):
+        d = distance(test_sample, train, metric, matching, alpha)
+        heapq.heappush(heap, (d, index))
+    nearest_neighbors += heapq.nsmallest(n_neighbors, heap)
     return nearest_neighbors
 
 
@@ -684,14 +682,14 @@ def cross_validate(experiment, n_neighbors=1, metric='L2', matching='default',
     loo = LeaveOneOut(n_samples)
     experiment['predictions'] = Parallel(n_jobs=-1)(
         delayed(_cross_validate_single)(experiment, n_neighbors, metric,
-                                        matching, alpha, test, train)
+                                        matching, alpha, test[0], train)
                 for train, test in loo)
 
 
 def _cross_validate_single(experiment, n_neighbors, metric, matching, alpha,
                            test, train):
     nn = nearest_neighbors(experiment.fhds[test], experiment.fhds[train],
-                           n_neighbors, metric, matching, alpha)[0]
+                           n_neighbors, metric, matching, alpha)
     labels = [experiment.labels[train][n[1]] for n in nn]
     prediction = mode(labels)[0][0]
     return prediction
