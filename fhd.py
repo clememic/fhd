@@ -680,10 +680,10 @@ def cross_validate(experiment, n_neighbors=1, metric='L2', matching='default',
     """
     n_samples = len(experiment.labels)
     loo = LeaveOneOut(n_samples)
-    experiment['predictions'] = Parallel(n_jobs=-1)(
+    experiment['predictions'] = np.array(Parallel(n_jobs=-1)(
         delayed(_cross_validate_single)(experiment, n_neighbors, metric,
                                         matching, alpha, test[0], train)
-                for train, test in loo)
+                for train, test in loo))
 
 
 def _cross_validate_single(experiment, n_neighbors, metric, matching, alpha,
@@ -691,7 +691,7 @@ def _cross_validate_single(experiment, n_neighbors, metric, matching, alpha,
     nn = nearest_neighbors(experiment.fhds[test], experiment.fhds[train],
                            n_neighbors, metric, matching, alpha)
     labels = [experiment.labels[train][n[1]] for n in nn]
-    prediction = mode(labels)[0][0]
+    prediction = int(mode(labels)[0][0])
     return prediction
 
 
