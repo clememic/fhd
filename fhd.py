@@ -695,9 +695,10 @@ def _cross_validate_single(experiment, n_neighbors, metric, matching, alpha,
     return prediction
 
 
-def alpha_learning(experiment, n_neighbors=1, metric='L2', matching='default'):
+def alpha_learning(experiment, n_neighbors=1, metric='L2', matching='default',
+                   learning_type='by_class'):
     """
-    Learn 'optimal' alpha values for each class of the dataset.
+    Learn 'optimal' alpha weights on an experiment.
 
     Parameters
     ----------
@@ -709,38 +710,63 @@ def alpha_learning(experiment, n_neighbors=1, metric='L2', matching='default'):
         The distance metric used to compare histograms.
     matching : str
         The matching strategy used.
+    learning_type : str
+        The learning type. Possible values are 'by_class' and 'global'.
+        'by_class' computes optimal alpha values for each class of the dataset,
+         whereas 'global' computes a global optimal alpha value for the dataset.
 
     Returns
     -------
-    best_alphas : list
-        The best alpha values obtained for each class of the dataset.
+    learned : list or float
+        For 'by_class', a list of learned alpha values. For 'global', the
+        learned global alpha value.
 
     Notes
     -----
     alpha values between 0.1 and 0.9 are tried with a step of 0.1.
-    The default alpha value is 0.5 (if a class is not recognized).
+    The default alpha value is 0.5 (for example if a class is not recognized).
 
     """
+    if learning_type not in ['by_class', 'global']:
+        raise ValueError('Wrong learning type.')
     alphas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    # alphas = np.linspace(0, 1)
     n_samples = len(experiment.labels)
     n_labels = len(np.unique(experiment.labels))
-    best_alphas = np.zeros(n_labels) + 0.5
-    best_rec_rates = np.zeros(n_labels)
-    for alpha in alphas:
-        cross_validate(experiment, n_neighbors=n_neighbors, metric=metric,
-                       matching=matching, alpha=alpha)
-        # Compute recognition rate for each class
-        true_positives = np.zeros(n_labels)
-        for i in range(n_samples):
-            if experiment.predictions[i] == experiment.labels[i]:
-                true_positives[experiment.labels[i] - 1] += 1
-        rec_rates = true_positives / np.bincount(experiment.labels)[1:]
-        # Keep track of best alpha values for each class
-        for i, rec_rate in enumerate(rec_rates):
-            if rec_rate > best_rec_rates[i]:
-                best_rec_rates[i] = rec_rate
-                best_alphas[i] = alpha
-    return best_alphas
+
+    if learning_type =='by_class':
+        # Learn best alpha values for each class
+        best_alphas = np.zeros(n_labels) + 0.5
+        best_rec_rates = np.zeros(n_labels)
+        for alpha in alphas:
+            cross_validate(experiment, n_neighbors=n_neighbors, metric=metric,
+                           matching=matching, alpha=alpha)
+            # Compute recognition rate for each class
+            true_positives = np.zeros(n_labels)
+            for i in range(n_samples):
+                if experiment.predictions[i] == experiment.labels[i]:
+                    true_positives[experiment.labels[i] - 1] += 1
+            rec_rates = true_positives / np.bincount(experiment.labels)[1:]
+            # Keep track of best alpha values for each class
+            for i, rec_rate in enumerate(rec_rates):
+                if rec_rate > best_rec_rates[i]:
+                    best_rec_rates[i] = rec_rate
+                    best_alphas[i] = alpha
+        return best_alphas
+
+    elif learning_type=='global':
+        # Learn best global alpha value
+        best_alpha = 0.5
+        best_rec_rate = 0.0
+        for alpha in alphas:
+            cross_validate(experiment, n_neighbors=n_neighbors, metric=metric,
+                           matching=matching, alpha=alpha)
+            # Just keep track of global recognition rate for each alpha
+            rec_rate = accuracy_score(experiment.labels, experiment.predictions)
+            if rec_rate > best_rec_rate:
+                best_rec_rate = rec_rate
+                best_alpha = alpha
+        return best_alpha
 
 
 def dump_results(experiment):
